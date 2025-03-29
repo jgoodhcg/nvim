@@ -231,7 +231,15 @@ require('lazy').setup({
       }
     end,
   },
-
+  -- Clojure REPL with Conjure
+  {
+    'Olical/conjure',
+    ft = { 'clojure' },
+    config = function()
+      -- Optional: tweak settings, e.g., window height for the log.
+      vim.g['conjure#log#winheight'] = 12
+    end,
+  },
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
   --
   -- This is often very useful to both group configuration, as well as handle
@@ -638,6 +646,8 @@ require('lazy').setup({
         -- ts_ls = {},
         --
 
+        clojure_lsp = {},
+
         lua_ls = {
           -- cmd = { ... },
           -- filetypes = { ... },
@@ -670,6 +680,8 @@ require('lazy').setup({
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
+        'clj-kondo',
+        'cljfmt',
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
