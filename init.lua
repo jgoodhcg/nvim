@@ -195,6 +195,7 @@ require('lazy').setup({
       },
     },
   },
+  -- File tree plugin
   {
     'nvim-tree/nvim-tree.lua',
     version = '*',
@@ -212,6 +213,25 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>e', ':NvimTreeToggle<CR>', { desc = 'Toggle File Tree' })
     end,
   },
+  -- Symbols list view
+  {
+    'simrat39/symbols-outline.nvim',
+    version = '*',
+    lazy = false,
+    cmd = 'SymbolsOutline',
+    keys = { { '<leader>o', '<cmd>SymbolsOutline<CR>', desc = 'Toggle Symbols Outline' } },
+    config = function()
+      require('symbols-outline').setup {
+        position = 'right',
+        relative_width = true,
+        width = 75,
+        auto_close = false,
+        keymaps = { close = { '<Esc>', 'q' } },
+        symbols = {},
+      }
+    end,
+  },
+
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
   --
   -- This is often very useful to both group configuration, as well as handle
