@@ -206,7 +206,7 @@ require('lazy').setup({
     config = function()
       require('nvim-tree').setup {
         sort = { sorter = 'case_sensitive' },
-        view = { width = 30 },
+        view = { width = 35 },
         renderer = { group_empty = true },
         filters = { dotfiles = true },
       }
@@ -224,7 +224,7 @@ require('lazy').setup({
       require('symbols-outline').setup {
         position = 'right',
         relative_width = true,
-        width = 75,
+        width = 45,
         auto_close = false,
         keymaps = { close = { '<Esc>', 'q' } },
         symbols = {},
