@@ -235,6 +235,9 @@ require('lazy').setup({
   {
     'Olical/conjure',
     ft = { 'clojure' },
+    init = function()
+      vim.g['conjure#mapping#prefix'] = ',c'
+    end,
     config = function()
       -- Optional: tweak settings, e.g., window height for the log.
       vim.g['conjure#log#winheight'] = 12
