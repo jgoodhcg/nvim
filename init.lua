@@ -739,6 +739,7 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        clojure = { 'zprint' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
