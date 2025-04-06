@@ -1,102 +1,134 @@
---[[
-
-=====================================================================
-==================== READ THIS BEFORE CONTINUING ====================
-=====================================================================
-========                                    .-----.          ========
-========         .----------------------.   | === |          ========
-========         |.-""""""""""""""""""-.|   |-----|          ========
-========         ||                    ||   | === |          ========
-========         ||   KICKSTART.NVIM   ||   |-----|          ========
-========         ||                    ||   | === |          ========
-========         ||                    ||   |-----|          ========
-========         ||:Tutor              ||   |:::::|          ========
-========         |'-..................-'|   |____o|          ========
-========         `"")----------------(""`   ___________      ========
-========        /::::::::::|  |::::::::::\  \ no mouse \     ========
-========       /:::========|  |==hjkl==:::\  \ required \    ========
-========      '""""""""""""'  '""""""""""""'  '""""""""""'   ========
-========                                                     ========
-=====================================================================
-=====================================================================
-
-What is Kickstart?
-
-  Kickstart.nvim is *not* a distribution.
-
-  Kickstart.nvim is a starting point for your own configuration.
-    The goal is that you can read every line of code, top-to-bottom, understand
-    what your configuration is doing, and modify it to suit your needs.
-
-    Once you've done that, you can start exploring, configuring and tinkering to
-    make Neovim your own! That might mean leaving Kickstart just the way it is for a while
-    or immediately breaking it into modular pieces. It's up to you!
-
-    If you don't know anything about Lua, I recommend taking some time to read through
-    a guide. One possible example which will only take 10-15 minutes:
-      - https://learnxinyminutes.com/docs/lua/
-
-    After understanding a bit more about Lua, you can use `:help lua-guide` as a
-    reference for how Neovim integrates Lua.
-    - :help lua-guide
-    - (or HTML version): https://neovim.io/doc/user/lua-guide.html
-
-Kickstart Guide:
-
-  TODO: The very first thing you should do is to run the command `:Tutor` in Neovim.
-
-    If you don't know what this means, type the following:
-      - <escape key>
-      - :
-      - Tutor
-      - <enter key>
-
-    (If you already know the Neovim basics, you can skip this step.)
-
-  Once you've completed that, you can continue working through **AND READING** the rest
-  of the kickstart init.lua.
-
-  Next, run AND READ `:help`.
-    This will open up a help window with some basic information
-    about reading, navigating and searching the builtin help documentation.
-
-    This should be the first place you go to look when you're stuck or confused
-    with something. It's one of my favorite Neovim features.
-
-    MOST IMPORTANTLY, we provide a keymap "<space>sh" to [s]earch the [h]elp documentation,
-    which is very useful when you're not exactly sure of what you're looking for.
-
-  I have left several `:help X` comments throughout the init.lua
-    These are hints about where to find more information about the relevant settings,
-    plugins or Neovim features used in Kickstart.
-
-   NOTE: Look for lines like this
-
-    Throughout the file. These are for you, the reader, to help you understand what is happening.
-    Feel free to delete them once you know what you're doing, but they should serve as a guide
-    for when you are first encountering a few different constructs in your Neovim config.
-
-If you experience any errors while trying to install kickstart, run `:checkhealth` for more info.
-
-I hope you enjoy your Neovim journey,
-- TJ
-
-P.S. You can delete this when you're done too. It's your config now! :)
---]]
-
 -- Set <space> as the leader key
 -- See `:help mapleader`
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
+-- Function to find Clojure namespace declaration and copy it to clipboard
+function FindClojureNamespaceAndCopy()
+  local ns_pattern = '%(ns%s+([%w%.%-]+)'
+  local current_line = vim.api.nvim_get_current_line()
+  local namespace = current_line:match(ns_pattern)
+
+  if namespace then
+    vim.fn.setreg('+', namespace)
+    print('Copied to clipboard: ' .. namespace)
+  else
+    -- If not found in current line, search buffer
+    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    for _, line in ipairs(lines) do
+      namespace = line:match(ns_pattern)
+      if namespace then
+        vim.fn.setreg('+', namespace)
+        print('Copied to clipboard: ' .. namespace)
+        return
+      end
+    end
+    print 'No Clojure namespace declaration found'
+  end
+end
+
+-- Function to create a new Clojure scratch buffer
+function OpenClojureScratchBuffer()
+  -- Check if a scratch buffer already exists
+  local buffers = vim.api.nvim_list_bufs()
+  local scratch_nr = nil
+  
+  for _, buf in ipairs(buffers) do
+    if vim.api.nvim_buf_is_valid(buf) then
+      local name = vim.api.nvim_buf_get_name(buf)
+      if name:match(".*ClojureScratch$") then
+        scratch_nr = buf
+        break
+      end
+    end
+  end
+  
+  local buf
+  -- Create or reuse buffer
+  if scratch_nr and vim.api.nvim_buf_is_valid(scratch_nr) then
+    buf = scratch_nr
+  else
+    -- Create a new buffer (unlisted=false so it shows in buffers list)
+    buf = vim.api.nvim_create_buf(true, false)
+    
+    -- Add a unique identifier to avoid name collisions
+    local timestamp = os.date('%Y%m%d%H%M%S')
+    vim.api.nvim_buf_set_name(buf, 'ClojureScratch-' .. timestamp)
+    
+    -- Set buffer filetype to clojure
+    vim.api.nvim_buf_set_option(buf, 'filetype', 'clojure')
+    
+    -- Add initial content with namespace that works with Conjure
+    local lines = {
+      '(ns user',
+      '  (:require',
+      '    [shadow.cljs.devtools.api :as shadow]',
+      '    [shadow.cljs.devtools.server :as server]))',
+      '',
+      ';; Clojure Scratch Buffer',
+      ';; Created: ' .. os.date('%Y-%m-%d %H:%M:%S'),
+      '',
+      ';; Common REPL commands:',
+      ';;',
+      ';; Start shadow-cljs:',
+      ';;   (server/start!)',
+      ';;   (shadow/watch :app)',
+      ';;   (shadow/repl :app)',
+      ';;',
+      ';; Reload current namespace in REPL:',
+      ';;   (require \'your.ns :reload)',
+      '',
+      '(comment',
+      '  ;; Your code here',
+      '  )',
+      ''
+    }
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  end
+  
+  -- Open the buffer in current window
+  vim.api.nvim_set_current_buf(buf)
+  
+  -- Print info message
+  print('Opened Clojure scratch buffer')
+end
+
+-- Create a user command to open the scratch buffer
+vim.api.nvim_create_user_command('ClojureScratch', OpenClojureScratchBuffer, {
+  desc = 'Open a new Clojure scratch buffer'
+})
+
+-- Map to a keybinding (only for Clojure files)
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'clojure',
+  callback = function()
+    vim.keymap.set('n', '<leader>cn', FindClojureNamespaceAndCopy, { buffer = true, desc = '[C]opy Clojure [N]amespace to clipboard' })
+    vim.keymap.set('n', '<leader>n', function()
+      vim.lsp.buf.code_action { context = { only = { 'source.organizeImports' } } }
+    end, { buffer = true, desc = 'Clean [N]amespace' })
+    vim.keymap.set('n', '<leader>cs', OpenClojureScratchBuffer, { buffer = true, desc = '[C]lojure [S]cratch buffer' })
+  end,
+})
+
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
 -- NOTE: You can change these options as you wish!
 --  For more options, you can see `:help option-list`
+
+-- Folding
+vim.opt.foldmethod = 'expr'
+vim.opt.foldexpr = 'nvim_treesitter#foldexpr()'
+vim.opt.foldenable = true
+vim.opt.foldlevelstart = 99 -- so folds start open
+
+-- File tree setup
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+vim.opt.termguicolors = true
 
 -- Make line numbers default
 vim.o.number = true
@@ -173,6 +205,30 @@ vim.o.confirm = true
 --  See `:help hlsearch`
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 
+-- Function to copy the current file path relative to project root
+function CopyFilePathFromRoot()
+  -- Get the current buffer's full path
+  local filepath = vim.fn.expand '%:p'
+
+  -- Get the git root directory (or current working directory if not in a git repo)
+  local git_root = vim.fn.system('git -C ' .. vim.fn.expand '%:p:h' .. ' rev-parse --show-toplevel'):gsub('\n', '')
+
+  if vim.v.shell_error ~= 0 then
+    -- Not in a git repo, use current working directory
+    git_root = vim.fn.getcwd()
+  end
+
+  -- Make path relative to root
+  local relative_path = filepath:gsub('^' .. vim.fn.escape(git_root, '%-%.()[]{}\\^$+*') .. '/', '')
+
+  -- Copy to clipboard
+  vim.fn.setreg('+', relative_path)
+  print('Copied to clipboard: ' .. relative_path)
+end
+
+-- Set keybinding to copy file path
+vim.keymap.set('n', '<leader>cp', CopyFilePathFromRoot, { desc = '[C]opy file [P]ath from project root' })
+
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 
@@ -200,6 +256,7 @@ vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower win
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
 
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
+
 -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
 -- vim.keymap.set("n", "<C-S-l>", "<C-w>L", { desc = "Move window to the right" })
 -- vim.keymap.set("n", "<C-S-j>", "<C-w>J", { desc = "Move window to the lower" })
@@ -246,6 +303,7 @@ rtp:prepend(lazypath)
 --
 -- NOTE: Here is where you install your plugins.
 require('lazy').setup({
+
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'NMAC427/guess-indent.nvim', -- Detect tabstop and shiftwidth automatically
 
@@ -283,7 +341,142 @@ require('lazy').setup({
       },
     },
   },
+  -- File tree plugin
+  {
+    'nvim-tree/nvim-tree.lua',
+    version = '*',
+    lazy = false,
+    dependencies = {
+      'nvim-tree/nvim-web-devicons',
+    },
+    config = function()
+      local nvim_tree_api = require 'nvim-tree.api'
+      require('nvim-tree').setup {
+        sort = { sorter = 'case_sensitive' },
+        view = { width = 35 },
+        renderer = { group_empty = true },
+        filters = {
+          dotfiles = true, -- Hide dotfiles by default
+          git_ignored = true, -- Hide git-ignored files by default
+        },
+        actions = {
+          open_file = {
+            quit_on_open = true,
+          },
+        },
+      }
 
+      -- Toggle hidden files function
+      local function toggle_nvim_tree_hidden()
+        local api = require 'nvim-tree.api'
+        api.tree.toggle_hidden_filter()
+        print 'Toggled hidden files'
+      end
+
+      -- Toggle git-ignored files function
+      local function toggle_nvim_tree_gitignored()
+        local api = require 'nvim-tree.api'
+        api.tree.toggle_gitignore_filter()
+        print 'Toggled git-ignored files'
+      end
+
+      vim.keymap.set('n', '<leader>e', ':NvimTreeToggle<CR>', { desc = 'Toggle File Tree' })
+      vim.keymap.set('n', '<leader>th', toggle_nvim_tree_hidden, { desc = 'Toggle Hidden Files in Tree' })
+      vim.keymap.set('n', '<leader>ti', toggle_nvim_tree_gitignored, { desc = 'Toggle Git-Ignored Files in Tree' })
+    end,
+  },
+  -- Symbols list view
+  {
+    'simrat39/symbols-outline.nvim',
+    version = '*',
+    lazy = false,
+    cmd = 'SymbolsOutline',
+    keys = { { '<leader>o', '<cmd>SymbolsOutline<CR>', desc = 'Toggle Symbols Outline' } },
+    config = function()
+      require('symbols-outline').setup {
+        position = 'right',
+        relative_width = true,
+        width = 45,
+        auto_close = true,
+        keymaps = { close = { '<Esc>', 'q' } },
+        symbols = {},
+      }
+    end,
+  },
+  -- Clojure REPL with Conjure
+  {
+    'Olical/conjure',
+    ft = { 'clojure' },
+    init = function()
+      vim.g['conjure#mapping#prefix'] = ',c'
+    end,
+    config = function()
+      -- Optional: tweak settings, e.g., window height for the log.
+      vim.g['conjure#log#winheight'] = 12
+    end,
+  },
+  -- Structural editing with Paredit (slurp and barf)
+  {
+    'guns/vim-sexp',
+    dependencies = {
+      'tpope/vim-sexp-mappings-for-regular-people',
+      'tpope/vim-repeat',
+      'tpope/vim-surround',
+    },
+    ft = { 'clojure', 'scheme', 'lisp' },
+    config = function()
+      -- Keep only keybindings that start with > and disable others
+      vim.g.sexp_mappings = {
+        sexp_round_head_wrap_element = '',
+        sexp_round_tail_wrap_element = '',
+        sexp_square_head_wrap_element = '',
+        sexp_square_tail_wrap_element = '',
+        sexp_curly_head_wrap_element = '',
+        sexp_curly_tail_wrap_element = '',
+        sexp_round_head_wrap_list = '',
+        sexp_round_tail_wrap_list = '',
+        sexp_square_head_wrap_list = '',
+        sexp_square_tail_wrap_list = '',
+        sexp_curly_head_wrap_list = '',
+        sexp_curly_tail_wrap_list = '',
+        sexp_splice_list = '',
+        sexp_raise_list = '',
+        sexp_raise_element = '',
+        sexp_swap_list_backward = '',
+        sexp_swap_list_forward = '',
+        sexp_swap_element_backward = '',
+        sexp_swap_element_forward = '',
+        sexp_emit_head_element = '',
+        sexp_emit_tail_element = '',
+        sexp_capture_head_element = '',
+        sexp_capture_tail_element = '',
+      }
+      -- Keep only keybindings that start with > from vim-sexp-mappings-for-regular-people
+      vim.g.sexp_mappings_for_regular_people = {
+        sexp_capture_next_element = '', -- <(
+        sexp_capture_prev_element = '', -- >)
+      }
+      -- The only bindings we keep are >)/) for slurp/barf
+    end,
+  },
+  {
+    '00msjr/nvim-fountain',
+    ft = 'fountain', -- Lazy-load only for fountain files
+    config = function()
+      require('nvim-fountain').setup {
+        -- Optional configuration
+        keymaps = {
+          next_scene = ']]',
+          prev_scene = '[[',
+          uppercase_line = '<S-CR>',
+        },
+        -- Export configuration
+        export = {
+          pdf = { options = '--overwrite --font Courier' },
+        },
+      }
+    end,
+  },
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
   --
   -- This is often very useful to both group configuration, as well as handle
@@ -407,18 +600,94 @@ require('lazy').setup({
         -- You can put your default mappings / updates / etc. in here
         --  All the info you're looking for is in `:help telescope.setup()`
         --
-        -- defaults = {
-        --   mappings = {
-        --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-        --   },
-        -- },
-        -- pickers = {}
+        defaults = {
+          -- Hide hidden files by default
+          hidden = false,
+          -- Don't include files in .gitignore by default
+          file_ignore_patterns = {},
+          mappings = {
+            i = { ['<c-enter>'] = 'to_fuzzy_refine' },
+          },
+        },
+        pickers = {
+          find_files = {
+            hidden = false,
+            no_ignore = false,
+          },
+          live_grep = {
+            -- No additional args by default to respect gitignore and hidden files
+          },
+        },
         extensions = {
           ['ui-select'] = {
             require('telescope.themes').get_dropdown(),
           },
         },
       }
+
+      -- Add toggle functions for telescope
+      _G.telescope_toggle_hidden_files = function()
+        -- Track toggle state with a global variable since retrieving from Telescope is unreliable
+        if _G.telescope_showing_hidden == nil then
+          _G.telescope_showing_hidden = false -- Initial state: not showing hidden files
+        end
+
+        -- Toggle the state
+        _G.telescope_showing_hidden = not _G.telescope_showing_hidden
+
+        -- Get the new state
+        local new_hidden = _G.telescope_showing_hidden
+        local new_no_ignore = _G.telescope_showing_hidden
+
+        -- Preserve existing configuration by getting current setup
+        local telescope = require 'telescope'
+
+        -- Create a modified configuration
+        local config = {
+          defaults = {
+            -- Keep existing mappings from original setup
+            mappings = {
+              i = { ['<c-enter>'] = 'to_fuzzy_refine' },
+            },
+            -- Update hidden file settings
+            hidden = new_hidden,
+            no_ignore = new_no_ignore,
+          },
+          pickers = {
+            find_files = {
+              hidden = new_hidden,
+              no_ignore = new_no_ignore,
+            },
+            live_grep = {},
+          },
+          extensions = {
+            ['ui-select'] = {
+              require('telescope.themes').get_dropdown(),
+            },
+          },
+        }
+
+        -- Set additional args for live_grep based on state
+        if new_hidden then
+          config.pickers.live_grep.additional_args = function()
+            return { '--hidden', '--no-ignore' }
+          end
+        end
+
+        -- Update configuration
+        telescope.setup(config)
+
+        -- Reload extensions to ensure configuration is applied
+        pcall(telescope.load_extension, 'fzf')
+        pcall(telescope.load_extension, 'ui-select')
+
+        -- Show status message
+        if new_hidden then
+          print 'Telescope: Now showing hidden and git-ignored files'
+        else
+          print 'Telescope: Now hiding hidden and git-ignored files'
+        end
+      end
 
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
@@ -459,6 +728,23 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sn', function()
         builtin.find_files { cwd = vim.fn.stdpath 'config' }
       end, { desc = '[S]earch [N]eovim files' })
+
+      -- Add keybinding for toggling hidden files in telescope
+      vim.keymap.set('n', '<leader>ts', function()
+        _G.telescope_toggle_hidden_files()
+      end, { desc = '[T]oggle hidden files in [S]earch/telescope' })
+
+      -- Function to search for yanked text using telescope grep
+      vim.keymap.set('n', '<leader>sp', function()
+        local yanked_text = vim.fn.getreg('"')
+        if yanked_text and yanked_text ~= '' then
+          -- Remove newlines and extra whitespace
+          local cleaned_text = yanked_text:gsub('\n', ' '):gsub('%s+', ' '):match('^%s*(.-)%s*$')
+          builtin.live_grep({ default_text = cleaned_text })
+        else
+          print('No text in yank register')
+        end
+      end, { desc = '[S]earch for yanked text ([P]aste)' })
     end,
   },
 
@@ -684,6 +970,17 @@ require('lazy').setup({
         -- ts_ls = {},
         --
 
+        clojure_lsp = {},
+
+        -- Add JSON language server
+        jsonls = {
+          settings = {
+            json = {
+              validate = { enable = true },
+            },
+          },
+        },
+
         lua_ls = {
           -- cmd = { ... },
           -- filetypes = { ... },
@@ -716,6 +1013,9 @@ require('lazy').setup({
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
+        'clj-kondo',
+        'cljfmt',
+        'prettier', -- For JSON formatting
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -746,8 +1046,22 @@ require('lazy').setup({
         function()
           require('conform').format { async = true, lsp_format = 'fallback' }
         end,
-        mode = '',
-        desc = '[F]ormat buffer',
+        mode = { 'n', 'v' },
+        desc = '[F]ormat buffer or selection',
+      },
+      {
+        '<leader>j',
+        function()
+          -- Only run zprint with justified pairs on Clojure files
+          if vim.bo.filetype == 'clojure' then
+            require('conform').format {
+              async = true,
+              formatters = { 'zprint_justified' },
+            }
+          end
+        end,
+        mode = { 'n', 'v' },
+        desc = '[J]ustify Clojure maps/bindings',
       },
     },
     opts = {
@@ -756,7 +1070,7 @@ require('lazy').setup({
         -- Disable "format_on_save lsp_fallback" for languages that don't
         -- have a well standardized coding style. You can add additional
         -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true }
+        local disable_filetypes = { c = true, cpp = true, clojure = true }
         if disable_filetypes[vim.bo[bufnr].filetype] then
           return nil
         else
@@ -768,11 +1082,24 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        clojure = { 'cljfmt' },
+        json = { 'prettier' },
+        jsonc = { 'prettier' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
         -- You can use 'stop_after_first' to run the first available formatter from the list
         -- javascript = { "prettierd", "prettier", stop_after_first = true },
+      },
+      -- Define a custom formatter that only does justified pairs with zprint
+      formatters = {
+        zprint_justified = {
+          command = 'zprint',
+          args = {
+            '{:style [:respect-nl :justified :ns-justify :sort-dependencies :sort-require]}',
+          },
+          stdin = true,
+        },
       },
     },
   },
@@ -944,7 +1271,7 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'clojure' },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -976,7 +1303,7 @@ require('lazy').setup({
   -- require 'kickstart.plugins.debug',
   -- require 'kickstart.plugins.indent_line',
   -- require 'kickstart.plugins.lint',
-  -- require 'kickstart.plugins.autopairs',
+  require 'kickstart.plugins.autopairs',
   -- require 'kickstart.plugins.neo-tree',
   -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
