@@ -254,6 +254,20 @@ require('lazy').setup({
       vim.g['conjure#log#winheight'] = 12
     end,
   },
+  -- Structural editing with Paredit (slurp and barf)
+  {
+    'guns/vim-sexp',
+    dependencies = {
+      'tpope/vim-sexp-mappings-for-regular-people',
+      'tpope/vim-repeat',
+      'tpope/vim-surround',
+    },
+    ft = { 'clojure', 'scheme', 'lisp' },
+    config = function()
+      -- Optional: customize vim-sexp mappings (defaults are good)
+      -- vim.g.sexp_filetypes = 'clojure,scheme,lisp,fennel'
+    end,
+  },
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
   --
   -- This is often very useful to both group configuration, as well as handle
