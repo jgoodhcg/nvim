@@ -215,6 +215,11 @@ require('lazy').setup({
         view = { width = 35 },
         renderer = { group_empty = true },
         filters = { dotfiles = true },
+        actions = {
+          open_file = {
+            quit_on_open = true,
+          },
+        },
       }
       vim.keymap.set('n', '<leader>e', ':NvimTreeToggle<CR>', { desc = 'Toggle File Tree' })
     end,
@@ -231,7 +236,7 @@ require('lazy').setup({
         position = 'right',
         relative_width = true,
         width = 45,
-        auto_close = false,
+        auto_close = true,
         keymaps = { close = { '<Esc>', 'q' } },
         symbols = {},
       }
