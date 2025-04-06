@@ -718,14 +718,27 @@ require('lazy').setup({
         mode = '',
         desc = '[F]ormat buffer',
       },
+      {
+        '<leader>j',
+        function()
+          -- Only run zprint with justified pairs on Clojure files
+          if vim.bo.filetype == 'clojure' then
+            require('conform').format {
+              async = true,
+              formatters = { 'zprint_justified' },
+            }
+          end
+        end,
+        mode = '',
+        desc = '[J]ustify Clojure maps/bindings',
+      },
     },
     opts = {
       notify_on_error = false,
       format_on_save = function(bufnr)
-        -- Disable "format_on_save lsp_fallback" for languages that don't
-        -- have a well standardized coding style. You can add additional
-        -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true }
+        -- Disable format-on-save for Clojure files and other languages that don't
+        -- have a well standardized coding style
+        local disable_filetypes = { c = true, cpp = true, clojure = true }
         local lsp_format_opt
         if disable_filetypes[vim.bo[bufnr].filetype] then
           lsp_format_opt = 'never'
@@ -739,12 +752,20 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
-        clojure = { 'zprint' },
+        clojure = { 'cljfmt' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
         -- You can use 'stop_after_first' to run the first available formatter from the list
         -- javascript = { "prettierd", "prettier", stop_after_first = true },
+      },
+      -- Define a custom formatter that only does justified pairs with zprint
+      formatters = {
+        zprint_justified = {
+          command = 'zprint',
+          args = { '{:map {:justify? true}, :binding {:justify? true}, :pair {:justify? true}, :style :respect-nl}' },
+          stdin = true,
+        },
       },
     },
   },
