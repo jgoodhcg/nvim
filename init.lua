@@ -264,8 +264,38 @@ require('lazy').setup({
     },
     ft = { 'clojure', 'scheme', 'lisp' },
     config = function()
-      -- Optional: customize vim-sexp mappings (defaults are good)
-      -- vim.g.sexp_filetypes = 'clojure,scheme,lisp,fennel'
+      -- Keep only keybindings that start with > and disable others
+      vim.g.sexp_mappings = {
+        sexp_round_head_wrap_element = '',
+        sexp_round_tail_wrap_element = '',
+        sexp_square_head_wrap_element = '',
+        sexp_square_tail_wrap_element = '',
+        sexp_curly_head_wrap_element = '',
+        sexp_curly_tail_wrap_element = '',
+        sexp_round_head_wrap_list = '',
+        sexp_round_tail_wrap_list = '',
+        sexp_square_head_wrap_list = '',
+        sexp_square_tail_wrap_list = '',
+        sexp_curly_head_wrap_list = '',
+        sexp_curly_tail_wrap_list = '',
+        sexp_splice_list = '',
+        sexp_raise_list = '',
+        sexp_raise_element = '',
+        sexp_swap_list_backward = '',
+        sexp_swap_list_forward = '',
+        sexp_swap_element_backward = '',
+        sexp_swap_element_forward = '',
+        sexp_emit_head_element = '',
+        sexp_emit_tail_element = '',
+        sexp_capture_head_element = '',
+        sexp_capture_tail_element = '',
+      }
+      -- Keep only keybindings that start with > from vim-sexp-mappings-for-regular-people
+      vim.g.sexp_mappings_for_regular_people = {
+        sexp_capture_next_element = '',  -- <(
+        sexp_capture_prev_element = '',  -- >)
+      }
+      -- The only bindings we keep are >)/) for slurp/barf
     end,
   },
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
