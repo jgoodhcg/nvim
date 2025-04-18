@@ -215,7 +215,10 @@ require('lazy').setup({
         sort = { sorter = 'case_sensitive' },
         view = { width = 35 },
         renderer = { group_empty = true },
-        filters = { dotfiles = true },
+        filters = { 
+          dotfiles = false,
+          git_ignored = false,
+        },
         actions = {
           open_file = {
             quit_on_open = true,
@@ -422,12 +425,26 @@ require('lazy').setup({
         -- You can put your default mappings / updates / etc. in here
         --  All the info you're looking for is in `:help telescope.setup()`
         --
-        -- defaults = {
-        --   mappings = {
-        --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-        --   },
-        -- },
-        -- pickers = {}
+        defaults = {
+          -- Show hidden files by default
+          hidden = true,
+          -- Include files in .gitignore
+          file_ignore_patterns = {},
+          mappings = {
+            i = { ['<c-enter>'] = 'to_fuzzy_refine' },
+          },
+        },
+        pickers = {
+          find_files = {
+            hidden = true,
+            no_ignore = true,
+          },
+          live_grep = {
+            additional_args = function()
+              return { "--hidden", "--no-ignore" }
+            end
+          },
+        },
         extensions = {
           ['ui-select'] = {
             require('telescope.themes').get_dropdown(),
