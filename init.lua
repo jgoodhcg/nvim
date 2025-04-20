@@ -211,13 +211,14 @@ require('lazy').setup({
       'nvim-tree/nvim-web-devicons',
     },
     config = function()
+      local nvim_tree_api = require('nvim-tree.api')
       require('nvim-tree').setup {
         sort = { sorter = 'case_sensitive' },
         view = { width = 35 },
         renderer = { group_empty = true },
         filters = { 
-          dotfiles = false,
-          git_ignored = false,
+          dotfiles = true,       -- Hide dotfiles by default
+          git_ignored = true,    -- Hide git-ignored files by default
         },
         actions = {
           open_file = {
@@ -225,7 +226,24 @@ require('lazy').setup({
           },
         },
       }
+      
+      -- Toggle hidden files function
+      local function toggle_nvim_tree_hidden()
+        local api = require("nvim-tree.api")
+        api.tree.toggle_hidden_filter()
+        print("Toggled hidden files")
+      end
+      
+      -- Toggle git-ignored files function
+      local function toggle_nvim_tree_gitignored()
+        local api = require("nvim-tree.api")
+        api.tree.toggle_gitignore_filter()
+        print("Toggled git-ignored files")
+      end
+      
       vim.keymap.set('n', '<leader>e', ':NvimTreeToggle<CR>', { desc = 'Toggle File Tree' })
+      vim.keymap.set('n', '<leader>th', toggle_nvim_tree_hidden, { desc = 'Toggle Hidden Files in Tree' })
+      vim.keymap.set('n', '<leader>ti', toggle_nvim_tree_gitignored, { desc = 'Toggle Git-Ignored Files in Tree' })
     end,
   },
   -- Symbols list view
@@ -426,9 +444,9 @@ require('lazy').setup({
         --  All the info you're looking for is in `:help telescope.setup()`
         --
         defaults = {
-          -- Show hidden files by default
-          hidden = true,
-          -- Include files in .gitignore
+          -- Hide hidden files by default
+          hidden = false,
+          -- Don't include files in .gitignore by default
           file_ignore_patterns = {},
           mappings = {
             i = { ['<c-enter>'] = 'to_fuzzy_refine' },
@@ -436,13 +454,11 @@ require('lazy').setup({
         },
         pickers = {
           find_files = {
-            hidden = true,
-            no_ignore = true,
+            hidden = false,
+            no_ignore = false,
           },
           live_grep = {
-            additional_args = function()
-              return { "--hidden", "--no-ignore" }
-            end
+            -- No additional args by default to respect gitignore and hidden files
           },
         },
         extensions = {
@@ -451,6 +467,70 @@ require('lazy').setup({
           },
         },
       }
+      
+      -- Add toggle functions for telescope
+      _G.telescope_toggle_hidden_files = function()
+        -- Track toggle state with a global variable since retrieving from Telescope is unreliable
+        if _G.telescope_showing_hidden == nil then
+          _G.telescope_showing_hidden = false -- Initial state: not showing hidden files
+        end
+        
+        -- Toggle the state
+        _G.telescope_showing_hidden = not _G.telescope_showing_hidden
+        
+        -- Get the new state
+        local new_hidden = _G.telescope_showing_hidden
+        local new_no_ignore = _G.telescope_showing_hidden
+        
+        -- Preserve existing configuration by getting current setup
+        local telescope = require('telescope')
+        
+        -- Create a modified configuration
+        local config = {
+          defaults = {
+            -- Keep existing mappings from original setup
+            mappings = {
+              i = { ['<c-enter>'] = 'to_fuzzy_refine' },
+            },
+            -- Update hidden file settings
+            hidden = new_hidden,
+            no_ignore = new_no_ignore,
+          },
+          pickers = {
+            find_files = {
+              hidden = new_hidden,
+              no_ignore = new_no_ignore,
+            },
+            live_grep = {}
+          },
+          extensions = {
+            ['ui-select'] = {
+              require('telescope.themes').get_dropdown(),
+            },
+          },
+        }
+        
+        -- Set additional args for live_grep based on state
+        if new_hidden then
+          config.pickers.live_grep.additional_args = function()
+            return { "--hidden", "--no-ignore" }
+          end
+        end
+        
+        -- Update configuration
+        telescope.setup(config)
+        
+        -- Reload extensions to ensure configuration is applied
+        pcall(telescope.load_extension, 'fzf')
+        pcall(telescope.load_extension, 'ui-select')
+        
+        -- Show status message
+        if new_hidden then
+          print("Telescope: Now showing hidden and git-ignored files")
+        else
+          print("Telescope: Now hiding hidden and git-ignored files")
+        end
+      end
 
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
@@ -491,6 +571,11 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sn', function()
         builtin.find_files { cwd = vim.fn.stdpath 'config' }
       end, { desc = '[S]earch [N]eovim files' })
+      
+      -- Add keybinding for toggling hidden files in telescope
+      vim.keymap.set('n', '<leader>ts', function()
+        _G.telescope_toggle_hidden_files()
+      end, { desc = '[T]oggle hidden files in [S]earch/telescope' })
     end,
   },
 
