@@ -33,6 +33,9 @@ vim.api.nvim_create_autocmd("FileType", {
   pattern = "clojure",
   callback = function()
     vim.keymap.set('n', '<leader>ns', FindClojureNamespaceAndCopy, { buffer = true, desc = 'Copy Clojure [N]ame[S]pace to clipboard' })
+    vim.keymap.set('n', '<leader>cn', function()
+      vim.lsp.buf.code_action({ context = { only = { "source.organizeImports" } } })
+    end, { buffer = true, desc = '[C]lean [N]amespace' })
   end
 })
 
