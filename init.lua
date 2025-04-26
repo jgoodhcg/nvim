@@ -4,6 +4,38 @@
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
+-- Function to find Clojure namespace declaration and copy it to clipboard
+function FindClojureNamespaceAndCopy()
+  local ns_pattern = "%(ns%s+([%w%.%-]+)"
+  local current_line = vim.api.nvim_get_current_line()
+  local namespace = current_line:match(ns_pattern)
+  
+  if namespace then
+    vim.fn.setreg("+", namespace)
+    print("Copied to clipboard: " .. namespace)
+  else
+    -- If not found in current line, search buffer
+    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    for _, line in ipairs(lines) do
+      namespace = line:match(ns_pattern)
+      if namespace then
+        vim.fn.setreg("+", namespace)
+        print("Copied to clipboard: " .. namespace)
+        return
+      end
+    end
+    print("No Clojure namespace declaration found")
+  end
+end
+
+-- Map to a keybinding (only for Clojure files)
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "clojure",
+  callback = function()
+    vim.keymap.set('n', '<leader>ns', FindClojureNamespaceAndCopy, { buffer = true, desc = 'Copy Clojure [N]ame[S]pace to clipboard' })
+  end
+})
+
 -- Set to true if you have a Nerd Font installed and selected in the terminal
 vim.g.have_nerd_font = true
 
