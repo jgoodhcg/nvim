@@ -6,37 +6,37 @@ vim.g.maplocalleader = ' '
 
 -- Function to find Clojure namespace declaration and copy it to clipboard
 function FindClojureNamespaceAndCopy()
-  local ns_pattern = "%(ns%s+([%w%.%-]+)"
+  local ns_pattern = '%(ns%s+([%w%.%-]+)'
   local current_line = vim.api.nvim_get_current_line()
   local namespace = current_line:match(ns_pattern)
-  
+
   if namespace then
-    vim.fn.setreg("+", namespace)
-    print("Copied to clipboard: " .. namespace)
+    vim.fn.setreg('+', namespace)
+    print('Copied to clipboard: ' .. namespace)
   else
     -- If not found in current line, search buffer
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
     for _, line in ipairs(lines) do
       namespace = line:match(ns_pattern)
       if namespace then
-        vim.fn.setreg("+", namespace)
-        print("Copied to clipboard: " .. namespace)
+        vim.fn.setreg('+', namespace)
+        print('Copied to clipboard: ' .. namespace)
         return
       end
     end
-    print("No Clojure namespace declaration found")
+    print 'No Clojure namespace declaration found'
   end
 end
 
 -- Map to a keybinding (only for Clojure files)
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = "clojure",
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'clojure',
   callback = function()
     vim.keymap.set('n', '<leader>ns', FindClojureNamespaceAndCopy, { buffer = true, desc = 'Copy Clojure [N]ame[S]pace to clipboard' })
     vim.keymap.set('n', '<leader>cn', function()
-      vim.lsp.buf.code_action({ context = { only = { "source.organizeImports" } } })
+      vim.lsp.buf.code_action { context = { only = { 'source.organizeImports' } } }
     end, { buffer = true, desc = '[C]lean [N]amespace' })
-  end
+  end,
 })
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
@@ -246,14 +246,14 @@ require('lazy').setup({
       'nvim-tree/nvim-web-devicons',
     },
     config = function()
-      local nvim_tree_api = require('nvim-tree.api')
+      local nvim_tree_api = require 'nvim-tree.api'
       require('nvim-tree').setup {
         sort = { sorter = 'case_sensitive' },
         view = { width = 35 },
         renderer = { group_empty = true },
-        filters = { 
-          dotfiles = true,       -- Hide dotfiles by default
-          git_ignored = true,    -- Hide git-ignored files by default
+        filters = {
+          dotfiles = true, -- Hide dotfiles by default
+          git_ignored = true, -- Hide git-ignored files by default
         },
         actions = {
           open_file = {
@@ -261,21 +261,21 @@ require('lazy').setup({
           },
         },
       }
-      
+
       -- Toggle hidden files function
       local function toggle_nvim_tree_hidden()
-        local api = require("nvim-tree.api")
+        local api = require 'nvim-tree.api'
         api.tree.toggle_hidden_filter()
-        print("Toggled hidden files")
+        print 'Toggled hidden files'
       end
-      
+
       -- Toggle git-ignored files function
       local function toggle_nvim_tree_gitignored()
-        local api = require("nvim-tree.api")
+        local api = require 'nvim-tree.api'
         api.tree.toggle_gitignore_filter()
-        print("Toggled git-ignored files")
+        print 'Toggled git-ignored files'
       end
-      
+
       vim.keymap.set('n', '<leader>e', ':NvimTreeToggle<CR>', { desc = 'Toggle File Tree' })
       vim.keymap.set('n', '<leader>th', toggle_nvim_tree_hidden, { desc = 'Toggle Hidden Files in Tree' })
       vim.keymap.set('n', '<leader>ti', toggle_nvim_tree_gitignored, { desc = 'Toggle Git-Ignored Files in Tree' })
@@ -349,8 +349,8 @@ require('lazy').setup({
       }
       -- Keep only keybindings that start with > from vim-sexp-mappings-for-regular-people
       vim.g.sexp_mappings_for_regular_people = {
-        sexp_capture_next_element = '',  -- <(
-        sexp_capture_prev_element = '',  -- >)
+        sexp_capture_next_element = '', -- <(
+        sexp_capture_prev_element = '', -- >)
       }
       -- The only bindings we keep are >)/) for slurp/barf
     end,
@@ -502,24 +502,24 @@ require('lazy').setup({
           },
         },
       }
-      
+
       -- Add toggle functions for telescope
       _G.telescope_toggle_hidden_files = function()
         -- Track toggle state with a global variable since retrieving from Telescope is unreliable
         if _G.telescope_showing_hidden == nil then
           _G.telescope_showing_hidden = false -- Initial state: not showing hidden files
         end
-        
+
         -- Toggle the state
         _G.telescope_showing_hidden = not _G.telescope_showing_hidden
-        
+
         -- Get the new state
         local new_hidden = _G.telescope_showing_hidden
         local new_no_ignore = _G.telescope_showing_hidden
-        
+
         -- Preserve existing configuration by getting current setup
-        local telescope = require('telescope')
-        
+        local telescope = require 'telescope'
+
         -- Create a modified configuration
         local config = {
           defaults = {
@@ -536,7 +536,7 @@ require('lazy').setup({
               hidden = new_hidden,
               no_ignore = new_no_ignore,
             },
-            live_grep = {}
+            live_grep = {},
           },
           extensions = {
             ['ui-select'] = {
@@ -544,26 +544,26 @@ require('lazy').setup({
             },
           },
         }
-        
+
         -- Set additional args for live_grep based on state
         if new_hidden then
           config.pickers.live_grep.additional_args = function()
-            return { "--hidden", "--no-ignore" }
+            return { '--hidden', '--no-ignore' }
           end
         end
-        
+
         -- Update configuration
         telescope.setup(config)
-        
+
         -- Reload extensions to ensure configuration is applied
         pcall(telescope.load_extension, 'fzf')
         pcall(telescope.load_extension, 'ui-select')
-        
+
         -- Show status message
         if new_hidden then
-          print("Telescope: Now showing hidden and git-ignored files")
+          print 'Telescope: Now showing hidden and git-ignored files'
         else
-          print("Telescope: Now hiding hidden and git-ignored files")
+          print 'Telescope: Now hiding hidden and git-ignored files'
         end
       end
 
@@ -606,7 +606,7 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sn', function()
         builtin.find_files { cwd = vim.fn.stdpath 'config' }
       end, { desc = '[S]earch [N]eovim files' })
-      
+
       -- Add keybinding for toggling hidden files in telescope
       vim.keymap.set('n', '<leader>ts', function()
         _G.telescope_toggle_hidden_files()
@@ -837,7 +837,7 @@ require('lazy').setup({
         --
 
         clojure_lsp = {},
-        
+
         -- Add JSON language server
         jsonls = {
           settings = {
@@ -961,7 +961,9 @@ require('lazy').setup({
       formatters = {
         zprint_justified = {
           command = 'zprint',
-          args = { '{:map {:justify? true}, :binding {:justify? true}, :pair {:justify? true}, :style :respect-nl}' },
+          args = {
+            '{:style [:respect-nl :justified :ns-justify :sort-dependencies :sort-require]}',
+          },
           stdin = true,
         },
       },
