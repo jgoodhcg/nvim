@@ -32,10 +32,10 @@ end
 vim.api.nvim_create_autocmd('FileType', {
   pattern = 'clojure',
   callback = function()
-    vim.keymap.set('n', '<leader>ns', FindClojureNamespaceAndCopy, { buffer = true, desc = 'Copy Clojure [N]ame[S]pace to clipboard' })
-    vim.keymap.set('n', '<leader>cn', function()
+    vim.keymap.set('n', '<leader>cn', FindClojureNamespaceAndCopy, { buffer = true, desc = '[C]opy Clojure [N]amespace to clipboard' })
+    vim.keymap.set('n', '<leader>n', function()
       vim.lsp.buf.code_action { context = { only = { 'source.organizeImports' } } }
-    end, { buffer = true, desc = '[C]lean [N]amespace' })
+    end, { buffer = true, desc = 'Clean [N]amespace' })
   end,
 })
 
@@ -127,6 +127,30 @@ vim.opt.confirm = true
 -- Clear highlights on search when pressing <Esc> in normal mode
 --  See `:help hlsearch`
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
+
+-- Function to copy the current file path relative to project root
+function CopyFilePathFromRoot()
+  -- Get the current buffer's full path
+  local filepath = vim.fn.expand '%:p'
+
+  -- Get the git root directory (or current working directory if not in a git repo)
+  local git_root = vim.fn.system('git -C ' .. vim.fn.expand '%:p:h' .. ' rev-parse --show-toplevel'):gsub('\n', '')
+
+  if vim.v.shell_error ~= 0 then
+    -- Not in a git repo, use current working directory
+    git_root = vim.fn.getcwd()
+  end
+
+  -- Make path relative to root
+  local relative_path = filepath:gsub('^' .. vim.fn.escape(git_root, '%-%.()[]{}\\^$+*') .. '/', '')
+
+  -- Copy to clipboard
+  vim.fn.setreg('+', relative_path)
+  print('Copied to clipboard: ' .. relative_path)
+end
+
+-- Set keybinding to copy file path
+vim.keymap.set('n', '<leader>cp', CopyFilePathFromRoot, { desc = '[C]opy file [P]ath from project root' })
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
