@@ -28,6 +28,77 @@ function FindClojureNamespaceAndCopy()
   end
 end
 
+-- Function to create a new Clojure scratch buffer
+function OpenClojureScratchBuffer()
+  -- Check if a scratch buffer already exists
+  local buffers = vim.api.nvim_list_bufs()
+  local scratch_nr = nil
+  
+  for _, buf in ipairs(buffers) do
+    if vim.api.nvim_buf_is_valid(buf) then
+      local name = vim.api.nvim_buf_get_name(buf)
+      if name:match(".*ClojureScratch$") then
+        scratch_nr = buf
+        break
+      end
+    end
+  end
+  
+  local buf
+  -- Create or reuse buffer
+  if scratch_nr and vim.api.nvim_buf_is_valid(scratch_nr) then
+    buf = scratch_nr
+  else
+    -- Create a new buffer (unlisted=false so it shows in buffers list)
+    buf = vim.api.nvim_create_buf(true, false)
+    
+    -- Add a unique identifier to avoid name collisions
+    local timestamp = os.date('%Y%m%d%H%M%S')
+    vim.api.nvim_buf_set_name(buf, 'ClojureScratch-' .. timestamp)
+    
+    -- Set buffer filetype to clojure
+    vim.api.nvim_buf_set_option(buf, 'filetype', 'clojure')
+    
+    -- Add initial content with namespace that works with Conjure
+    local lines = {
+      '(ns user',
+      '  (:require',
+      '    [shadow.cljs.devtools.api :as shadow]',
+      '    [shadow.cljs.devtools.server :as server]))',
+      '',
+      ';; Clojure Scratch Buffer',
+      ';; Created: ' .. os.date('%Y-%m-%d %H:%M:%S'),
+      '',
+      ';; Common REPL commands:',
+      ';;',
+      ';; Start shadow-cljs:',
+      ';;   (server/start!)',
+      ';;   (shadow/watch :app)',
+      ';;   (shadow/repl :app)',
+      ';;',
+      ';; Reload current namespace in REPL:',
+      ';;   (require \'your.ns :reload)',
+      '',
+      '(comment',
+      '  ;; Your code here',
+      '  )',
+      ''
+    }
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  end
+  
+  -- Open the buffer in current window
+  vim.api.nvim_set_current_buf(buf)
+  
+  -- Print info message
+  print('Opened Clojure scratch buffer')
+end
+
+-- Create a user command to open the scratch buffer
+vim.api.nvim_create_user_command('ClojureScratch', OpenClojureScratchBuffer, {
+  desc = 'Open a new Clojure scratch buffer'
+})
+
 -- Map to a keybinding (only for Clojure files)
 vim.api.nvim_create_autocmd('FileType', {
   pattern = 'clojure',
@@ -36,6 +107,7 @@ vim.api.nvim_create_autocmd('FileType', {
     vim.keymap.set('n', '<leader>n', function()
       vim.lsp.buf.code_action { context = { only = { 'source.organizeImports' } } }
     end, { buffer = true, desc = 'Clean [N]amespace' })
+    vim.keymap.set('n', '<leader>cs', OpenClojureScratchBuffer, { buffer = true, desc = '[C]lojure [S]cratch buffer' })
   end,
 })
 
