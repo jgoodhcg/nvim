@@ -1008,8 +1008,8 @@ require('lazy').setup({
         function()
           require('conform').format { async = true, lsp_format = 'fallback' }
         end,
-        mode = '',
-        desc = '[F]ormat buffer',
+        mode = { 'n', 'v' },
+        desc = '[F]ormat buffer or selection',
       },
       {
         '<leader>j',
@@ -1022,7 +1022,7 @@ require('lazy').setup({
             }
           end
         end,
-        mode = '',
+        mode = { 'n', 'v' },
         desc = '[J]ustify Clojure maps/bindings',
       },
     },
