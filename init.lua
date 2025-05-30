@@ -707,6 +707,18 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>ts', function()
         _G.telescope_toggle_hidden_files()
       end, { desc = '[T]oggle hidden files in [S]earch/telescope' })
+
+      -- Function to search for yanked text using telescope grep
+      vim.keymap.set('n', '<leader>sp', function()
+        local yanked_text = vim.fn.getreg('"')
+        if yanked_text and yanked_text ~= '' then
+          -- Remove newlines and extra whitespace
+          local cleaned_text = yanked_text:gsub('\n', ' '):gsub('%s+', ' '):match('^%s*(.-)%s*$')
+          builtin.live_grep({ default_text = cleaned_text })
+        else
+          print('No text in yank register')
+        end
+      end, { desc = '[S]earch for yanked text ([P]aste)' })
     end,
   },
 
