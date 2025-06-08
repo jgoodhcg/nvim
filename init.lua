@@ -383,6 +383,7 @@ require('lazy').setup({
       end
 
       vim.keymap.set('n', '<leader>e', ':NvimTreeToggle<CR>', { desc = 'Toggle File Tree' })
+      vim.keymap.set('n', '<leader>ef', ':NvimTreeFindFile<CR>', { desc = 'Find Current File in Tree' })
       vim.keymap.set('n', '<leader>th', toggle_nvim_tree_hidden, { desc = 'Toggle Hidden Files in Tree' })
       vim.keymap.set('n', '<leader>ti', toggle_nvim_tree_gitignored, { desc = 'Toggle Git-Ignored Files in Tree' })
     end,
