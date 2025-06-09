@@ -94,9 +94,76 @@ function OpenClojureScratchBuffer()
   print('Opened Clojure scratch buffer')
 end
 
--- Create a user command to open the scratch buffer
+-- Function to create a new Markdown scratch buffer
+function OpenMarkdownScratchBuffer()
+  -- Check if a scratch buffer already exists
+  local buffers = vim.api.nvim_list_bufs()
+  local scratch_nr = nil
+  
+  for _, buf in ipairs(buffers) do
+    if vim.api.nvim_buf_is_valid(buf) then
+      local name = vim.api.nvim_buf_get_name(buf)
+      if name:match(".*MarkdownScratch$") then
+        scratch_nr = buf
+        break
+      end
+    end
+  end
+  
+  local buf
+  -- Create or reuse buffer
+  if scratch_nr and vim.api.nvim_buf_is_valid(scratch_nr) then
+    buf = scratch_nr
+  else
+    -- Create a new buffer (unlisted=false so it shows in buffers list)
+    buf = vim.api.nvim_create_buf(true, false)
+    
+    -- Add a unique identifier to avoid name collisions
+    local timestamp = os.date('%Y%m%d%H%M%S')
+    vim.api.nvim_buf_set_name(buf, 'MarkdownScratch-' .. timestamp)
+    
+    -- Set buffer filetype to markdown
+    vim.api.nvim_buf_set_option(buf, 'filetype', 'markdown')
+    
+    -- Get project context
+    local cwd = vim.fn.getcwd()
+    local project_name = vim.fn.fnamemodify(cwd, ':t')
+    local git_branch = vim.fn.system('git branch --show-current 2>/dev/null'):gsub('\n', '')
+    if vim.v.shell_error ~= 0 then git_branch = '' end
+    
+    -- Add initial content with header
+    local lines = {
+      '<!-- Markdown Scratch Buffer -->',
+      '<!-- Created: ' .. os.date('%Y-%m-%d %H:%M:%S') .. ' -->',
+      '<!-- Project: ' .. project_name .. ' -->',
+    }
+    
+    if git_branch ~= '' then
+      table.insert(lines, '<!-- Branch: ' .. git_branch .. ' -->')
+    end
+    
+    table.insert(lines, '')
+    table.insert(lines, '# Scratch Notes')
+    table.insert(lines, '')
+    table.insert(lines, '')
+    
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  end
+  
+  -- Open the buffer in current window
+  vim.api.nvim_set_current_buf(buf)
+  
+  -- Print info message
+  print('Opened Markdown scratch buffer')
+end
+
+-- Create user commands to open scratch buffers
 vim.api.nvim_create_user_command('ClojureScratch', OpenClojureScratchBuffer, {
   desc = 'Open a new Clojure scratch buffer'
+})
+
+vim.api.nvim_create_user_command('MarkdownScratch', OpenMarkdownScratchBuffer, {
+  desc = 'Open a new Markdown scratch buffer'
 })
 
 -- Map to a keybinding (only for Clojure files)
@@ -228,6 +295,9 @@ end
 
 -- Set keybinding to copy file path
 vim.keymap.set('n', '<leader>cp', CopyFilePathFromRoot, { desc = '[C]opy file [P]ath from project root' })
+
+-- Set keybinding to open markdown scratch buffer
+vim.keymap.set('n', '<leader>ms', OpenMarkdownScratchBuffer, { desc = '[M]arkdown [S]cratch buffer' })
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
