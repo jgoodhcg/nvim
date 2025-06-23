@@ -1040,7 +1040,7 @@ require('lazy').setup({
         --    https://github.com/pmizio/typescript-tools.nvim
         --
         -- But for many setups, the LSP (`ts_ls`) will work just fine
-        -- ts_ls = {},
+        ts_ls = {},
         --
 
         clojure_lsp = {},
@@ -1089,6 +1089,7 @@ require('lazy').setup({
         'clj-kondo',
         'cljfmt',
         'prettier', -- For JSON formatting
+        'typescript-language-server', -- TypeScript LSP
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
