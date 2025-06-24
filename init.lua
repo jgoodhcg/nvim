@@ -1144,7 +1144,7 @@ require('lazy').setup({
         -- Disable "format_on_save lsp_fallback" for languages that don't
         -- have a well standardized coding style. You can add additional
         -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true, clojure = true }
+        local disable_filetypes = { c = true, cpp = true, clojure = true, typescript = true, javascript = true }
         if disable_filetypes[vim.bo[bufnr].filetype] then
           return nil
         else
@@ -1159,6 +1159,8 @@ require('lazy').setup({
         clojure = { 'cljfmt' },
         json = { 'prettier' },
         jsonc = { 'prettier' },
+        typescript = { 'prettier' },
+        javascript = { 'prettier' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
