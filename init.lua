@@ -33,17 +33,17 @@ function OpenClojureScratchBuffer()
   -- Check if a scratch buffer already exists
   local buffers = vim.api.nvim_list_bufs()
   local scratch_nr = nil
-  
+
   for _, buf in ipairs(buffers) do
     if vim.api.nvim_buf_is_valid(buf) then
       local name = vim.api.nvim_buf_get_name(buf)
-      if name:match(".*ClojureScratch$") then
+      if name:match '.*ClojureScratch$' then
         scratch_nr = buf
         break
       end
     end
   end
-  
+
   local buf
   -- Create or reuse buffer
   if scratch_nr and vim.api.nvim_buf_is_valid(scratch_nr) then
@@ -51,14 +51,14 @@ function OpenClojureScratchBuffer()
   else
     -- Create a new buffer (unlisted=false so it shows in buffers list)
     buf = vim.api.nvim_create_buf(true, false)
-    
+
     -- Add a unique identifier to avoid name collisions
-    local timestamp = os.date('%Y%m%d%H%M%S')
+    local timestamp = os.date '%Y%m%d%H%M%S'
     vim.api.nvim_buf_set_name(buf, 'ClojureScratch-' .. timestamp)
-    
+
     -- Set buffer filetype to clojure
     vim.api.nvim_buf_set_option(buf, 'filetype', 'clojure')
-    
+
     -- Add initial content with namespace that works with Conjure
     local lines = {
       '(ns user',
@@ -67,7 +67,7 @@ function OpenClojureScratchBuffer()
       '    [shadow.cljs.devtools.server :as server]))',
       '',
       ';; Clojure Scratch Buffer',
-      ';; Created: ' .. os.date('%Y-%m-%d %H:%M:%S'),
+      ';; Created: ' .. os.date '%Y-%m-%d %H:%M:%S',
       '',
       ';; Common REPL commands:',
       ';;',
@@ -77,21 +77,21 @@ function OpenClojureScratchBuffer()
       ';;   (shadow/repl :app)',
       ';;',
       ';; Reload current namespace in REPL:',
-      ';;   (require \'your.ns :reload)',
+      ";;   (require 'your.ns :reload)",
       '',
       '(comment',
       '  ;; Your code here',
       '  )',
-      ''
+      '',
     }
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   end
-  
+
   -- Open the buffer in current window
   vim.api.nvim_set_current_buf(buf)
-  
+
   -- Print info message
-  print('Opened Clojure scratch buffer')
+  print 'Opened Clojure scratch buffer'
 end
 
 -- Function to create a new Markdown scratch buffer
@@ -99,17 +99,17 @@ function OpenMarkdownScratchBuffer()
   -- Check if a scratch buffer already exists
   local buffers = vim.api.nvim_list_bufs()
   local scratch_nr = nil
-  
+
   for _, buf in ipairs(buffers) do
     if vim.api.nvim_buf_is_valid(buf) then
       local name = vim.api.nvim_buf_get_name(buf)
-      if name:match(".*MarkdownScratch$") then
+      if name:match '.*MarkdownScratch$' then
         scratch_nr = buf
         break
       end
     end
   end
-  
+
   local buf
   -- Create or reuse buffer
   if scratch_nr and vim.api.nvim_buf_is_valid(scratch_nr) then
@@ -117,53 +117,55 @@ function OpenMarkdownScratchBuffer()
   else
     -- Create a new buffer (unlisted=false so it shows in buffers list)
     buf = vim.api.nvim_create_buf(true, false)
-    
+
     -- Add a unique identifier to avoid name collisions
-    local timestamp = os.date('%Y%m%d%H%M%S')
-    vim.api.nvim_buf_set_name(buf, 'MarkdownScratch-' .. timestamp)
-    
+    local timestamp = os.date '%Y%m%d%H%M%S'
+    vim.api.nvim_buf_set_name(buf, 'MarkdownScratch-' .. timestamp .. '.md')
+
     -- Set buffer filetype to markdown
     vim.api.nvim_buf_set_option(buf, 'filetype', 'markdown')
-    
+
     -- Get project context
     local cwd = vim.fn.getcwd()
     local project_name = vim.fn.fnamemodify(cwd, ':t')
     local git_branch = vim.fn.system('git branch --show-current 2>/dev/null'):gsub('\n', '')
-    if vim.v.shell_error ~= 0 then git_branch = '' end
-    
+    if vim.v.shell_error ~= 0 then
+      git_branch = ''
+    end
+
     -- Add initial content with header
     local lines = {
       '<!-- Markdown Scratch Buffer -->',
-      '<!-- Created: ' .. os.date('%Y-%m-%d %H:%M:%S') .. ' -->',
+      '<!-- Created: ' .. os.date '%Y-%m-%d %H:%M:%S' .. ' -->',
       '<!-- Project: ' .. project_name .. ' -->',
     }
-    
+
     if git_branch ~= '' then
       table.insert(lines, '<!-- Branch: ' .. git_branch .. ' -->')
     end
-    
+
     table.insert(lines, '')
     table.insert(lines, '# Scratch Notes')
     table.insert(lines, '')
     table.insert(lines, '')
-    
+
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   end
-  
+
   -- Open the buffer in current window
   vim.api.nvim_set_current_buf(buf)
-  
+
   -- Print info message
-  print('Opened Markdown scratch buffer')
+  print 'Opened Markdown scratch buffer'
 end
 
 -- Create user commands to open scratch buffers
 vim.api.nvim_create_user_command('ClojureScratch', OpenClojureScratchBuffer, {
-  desc = 'Open a new Clojure scratch buffer'
+  desc = 'Open a new Clojure scratch buffer',
 })
 
 vim.api.nvim_create_user_command('MarkdownScratch', OpenMarkdownScratchBuffer, {
-  desc = 'Open a new Markdown scratch buffer'
+  desc = 'Open a new Markdown scratch buffer',
 })
 
 -- Map to a keybinding (only for Clojure files)
@@ -326,6 +328,21 @@ vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left wind
 vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+
+-- Window management with leader key
+vim.keymap.set('n', '<leader>wh', function() vim.cmd('wincmd h') end, { desc = 'Move to left window' })
+vim.keymap.set('n', '<leader>wj', function() vim.cmd('wincmd j') end, { desc = 'Move to lower window' })
+vim.keymap.set('n', '<leader>wk', function() vim.cmd('wincmd k') end, { desc = 'Move to upper window' })
+vim.keymap.set('n', '<leader>wl', function() vim.cmd('wincmd l') end, { desc = 'Move to right window' })
+vim.keymap.set('n', '<leader>ws', function() vim.cmd('wincmd s') end, { desc = 'Split horizontally' })
+vim.keymap.set('n', '<leader>wv', function() vim.cmd('wincmd v') end, { desc = 'Split vertically' })
+vim.keymap.set('n', '<leader>wq', function() vim.cmd('wincmd q') end, { desc = 'Close window' })
+vim.keymap.set('n', '<leader>wo', function() vim.cmd('wincmd o') end, { desc = 'Close all other windows' })
+vim.keymap.set('n', '<leader>w=', function() vim.cmd('wincmd =') end, { desc = 'Equalize window sizes' })
+vim.keymap.set('n', '<leader>w|', function() vim.cmd('wincmd |') end, { desc = 'Maximize window width' })
+vim.keymap.set('n', '<leader>w_', function() vim.cmd('wincmd _') end, { desc = 'Maximize window height' })
+vim.keymap.set('n', '<leader>wd', vim.diagnostic.open_float, { desc = 'Show diagnostic under cursor' })
+vim.keymap.set('n', '<leader>wD', vim.diagnostic.setloclist, { desc = 'Open diagnostic list' })
 
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
 
@@ -809,13 +826,13 @@ require('lazy').setup({
 
       -- Function to search for yanked text using telescope grep
       vim.keymap.set('n', '<leader>sp', function()
-        local yanked_text = vim.fn.getreg('"')
+        local yanked_text = vim.fn.getreg '"'
         if yanked_text and yanked_text ~= '' then
           -- Remove newlines and extra whitespace
-          local cleaned_text = yanked_text:gsub('\n', ' '):gsub('%s+', ' '):match('^%s*(.-)%s*$')
-          builtin.live_grep({ default_text = cleaned_text })
+          local cleaned_text = yanked_text:gsub('\n', ' '):gsub('%s+', ' '):match '^%s*(.-)%s*$'
+          builtin.live_grep { default_text = cleaned_text }
         else
-          print('No text in yank register')
+          print 'No text in yank register'
         end
       end, { desc = '[S]earch for yanked text ([P]aste)' })
     end,
