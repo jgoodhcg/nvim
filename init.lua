@@ -211,6 +211,15 @@ vim.o.mouse = 'a'
 -- Don't show the mode, since it's already in the status line
 vim.o.showmode = false
 
+-- Enable spell checking for specific file types
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'markdown', 'text', 'gitcommit', 'fountain' },
+  callback = function()
+    vim.opt_local.spell = true
+    vim.opt_local.spelllang = 'en_us'
+  end,
+})
+
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
@@ -300,6 +309,17 @@ vim.keymap.set('n', '<leader>cp', CopyFilePathFromRoot, { desc = '[C]opy file [P
 
 -- Set keybinding to open markdown scratch buffer
 vim.keymap.set('n', '<leader>ms', OpenMarkdownScratchBuffer, { desc = '[M]arkdown [S]cratch buffer' })
+
+-- Spell checking keybindings
+vim.keymap.set('n', '<leader>ts', function()
+  vim.opt_local.spell = not vim.opt_local.spell:get()
+  print(vim.opt_local.spell:get() and 'Spell checking enabled' or 'Spell checking disabled')
+end, { desc = '[T]oggle [S]pell checking' })
+vim.keymap.set('n', ']s', ']s', { desc = 'Next misspelled word' })
+vim.keymap.set('n', '[s', '[s', { desc = 'Previous misspelled word' })
+vim.keymap.set('n', 'z=', 'z=', { desc = 'Suggest spelling corrections' })
+vim.keymap.set('n', 'zg', 'zg', { desc = 'Add word to dictionary' })
+vim.keymap.set('n', 'zw', 'zw', { desc = 'Mark word as misspelled' })
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
@@ -1063,6 +1083,17 @@ require('lazy').setup({
         rust_analyzer = {},
         clojure_lsp = {},
 
+        -- Grammar and spell checking for prose
+        ltex = {
+          settings = {
+            ltex = {
+              language = 'en-US',
+              disabledRules = {},
+              hiddenFalsePositives = {},
+            },
+          },
+        },
+
         -- Add JSON language server
         jsonls = {
           settings = {
@@ -1108,6 +1139,7 @@ require('lazy').setup({
         'cljfmt',
         'prettier', -- For JSON formatting
         'typescript-language-server', -- TypeScript LSP
+        'ltex-ls', -- Grammar and spell checking
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
