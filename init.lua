@@ -6,7 +6,7 @@ vim.g.maplocalleader = ' '
 
 -- Function to find Clojure namespace declaration and copy it to clipboard
 function FindClojureNamespaceAndCopy()
-  local ns_pattern = '%(ns%s+([%w%.%-]+)'
+  local ns_pattern = '%(ns%s+%^?[^%s]*%s*([%w%.%-/]+)'
   local current_line = vim.api.nvim_get_current_line()
   local namespace = current_line:match(ns_pattern)
 
