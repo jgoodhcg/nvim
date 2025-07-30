@@ -1090,6 +1090,9 @@ require('lazy').setup({
               language = 'en-US',
               disabledRules = {},
               hiddenFalsePositives = {},
+              dictionary = {
+                ['en-US'] = {},
+              },
             },
           },
         },
