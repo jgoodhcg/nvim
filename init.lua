@@ -385,6 +385,17 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
+-- Force spaces for TypeScript/JavaScript files
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'typescript', 'javascript', 'typescriptreact', 'javascriptreact' },
+  callback = function()
+    vim.opt_local.expandtab = true
+    vim.opt_local.tabstop = 2
+    vim.opt_local.shiftwidth = 2
+    vim.opt_local.softtabstop = 2
+  end,
+})
+
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
