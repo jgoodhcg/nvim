@@ -189,8 +189,7 @@ vim.g.have_nerd_font = true
 --  For more options, you can see `:help option-list`
 
 -- Folding
-vim.opt.foldmethod = 'expr'
-vim.opt.foldexpr = 'nvim_treesitter#foldexpr()'
+vim.opt.foldmethod = 'manual'
 vim.opt.foldenable = true
 vim.opt.foldlevelstart = 99 -- so folds start open
 
@@ -1225,6 +1224,7 @@ require('lazy').setup({
         jsonc = { 'prettier' },
         typescript = { 'prettier' },
         javascript = { 'prettier' },
+        html = { 'prettier' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
