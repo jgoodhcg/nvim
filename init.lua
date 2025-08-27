@@ -6,26 +6,44 @@ vim.g.maplocalleader = ' '
 
 -- Function to find Clojure namespace declaration and copy it to clipboard
 function FindClojureNamespaceAndCopy()
-  local ns_pattern = '%(ns%s+%^?[^%s]*%s*([%w%.%-/]+)'
+  -- Try ordered patterns to support (ns ...) with or without metadata
+  local ns_patterns = {
+    '%(ns%s+%^%b{}%s*([%w%.%-/]+)', -- map metadata: (ns ^{:k v} my.ns)
+    '%(ns%s+%^%S+%s*([%w%.%-/]+)', -- simple metadata: (ns ^:private my.ns)
+    '%(ns%s+([%w%.%-/]+)', -- no metadata: (ns my.ns)
+  }
+
+  local function extract_namespace(s)
+    for _, p in ipairs(ns_patterns) do
+      local m = s:match(p)
+      if m then
+        return m
+      end
+    end
+    return nil
+  end
+
   local current_line = vim.api.nvim_get_current_line()
-  local namespace = current_line:match(ns_pattern)
+  local namespace = extract_namespace(current_line)
 
   if namespace then
     vim.fn.setreg('+', namespace)
     print('Copied to clipboard: ' .. namespace)
-  else
-    -- If not found in current line, search buffer
-    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-    for _, line in ipairs(lines) do
-      namespace = line:match(ns_pattern)
-      if namespace then
-        vim.fn.setreg('+', namespace)
-        print('Copied to clipboard: ' .. namespace)
-        return
-      end
-    end
-    print 'No Clojure namespace declaration found'
+    return
   end
+
+  -- If not found in current line, search entire buffer
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  for _, line in ipairs(lines) do
+    namespace = extract_namespace(line)
+    if namespace then
+      vim.fn.setreg('+', namespace)
+      print('Copied to clipboard: ' .. namespace)
+      return
+    end
+  end
+
+  print 'No Clojure namespace declaration found'
 end
 
 -- Function to create a new Clojure scratch buffer
