@@ -339,6 +339,34 @@ vim.keymap.set('n', 'z=', 'z=', { desc = 'Suggest spelling corrections' })
 vim.keymap.set('n', 'zg', 'zg', { desc = 'Add word to dictionary' })
 vim.keymap.set('n', 'zw', 'zw', { desc = 'Mark word as misspelled' })
 
+-- Toggle grammar/spell checking (ltex LSP)
+vim.keymap.set('n', '<leader>tg', function()
+  local clients = vim.lsp.get_clients({ name = 'ltex' })
+  if #clients == 0 then
+    -- Start ltex LSP
+    require('lspconfig').ltex.setup({
+      settings = {
+        ltex = {
+          language = 'en-US',
+          disabledRules = {},
+          hiddenFalsePositives = {},
+          dictionary = {
+            ['en-US'] = {},
+          },
+        },
+      },
+    })
+    vim.cmd('LspRestart')
+    print('Grammar checking enabled')
+  else
+    -- Stop ltex LSP
+    for _, client in ipairs(clients) do
+      client.stop()
+    end
+    print('Grammar checking disabled')
+  end
+end, { desc = '[T]oggle [G]rammar checking' })
+
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 vim.keymap.set('n', '[d', vim.diagnostic.goto_prev, { desc = 'Go to previous diagnostic' })
