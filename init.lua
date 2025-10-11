@@ -1390,8 +1390,15 @@ require('lazy').setup({
 
       sources = {
         default = { 'lsp', 'path', 'snippets', 'lazydev' },
+        per_filetype = {
+          sql = { 'lsp', 'path', 'snippets', 'lazydev', 'dadbod' },
+          mysql = { 'lsp', 'path', 'snippets', 'lazydev', 'dadbod' },
+          plsql = { 'lsp', 'path', 'snippets', 'lazydev', 'dadbod' },
+          dbout = { 'dadbod' },
+        },
         providers = {
           lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
+          dadbod = { name = 'Dadbod', module = 'vim_dadbod_completion.blink' },
         },
       },
 
