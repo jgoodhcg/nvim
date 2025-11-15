@@ -366,6 +366,14 @@ vim.keymap.set('n', '<leader>tg', function()
     print('Grammar checking disabled')
   end
 end, { desc = '[T]oggle [G]rammar checking' })
+vim.keymap.set('n', '<leader>tz', function()
+  local ok, zen = pcall(require, 'zen-mode')
+  if not ok then
+    vim.notify('Zen Mode is not available', vim.log.levels.ERROR)
+    return
+  end
+  zen.toggle()
+end, { desc = '[T]oggle [Z]en (with Twilight)' })
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
@@ -665,6 +673,61 @@ require('lazy').setup({
       }
     end,
   },
+  -- Distraction-free writing helpers
+  {
+    'folke/twilight.nvim',
+    opts = {
+      dimming = { alpha = 0.25 },
+      context = 8,
+      expand = { 'markdown' },
+      exclude = { 'lazy', 'mason' },
+    },
+  },
+  {
+    'folke/zen-mode.nvim',
+    dependencies = { 'folke/twilight.nvim' },
+    opts = {
+      window = {
+        width = 90,
+        options = {
+          number = false,
+          relativenumber = false,
+          signcolumn = 'no',
+        },
+      },
+      plugins = {
+        twilight = { enabled = true },
+        gitsigns = { enabled = false },
+        tmux = { enabled = true },
+      },
+      on_open = function()
+        -- Remember settings so we can restore them on close
+        vim.b._zen_previous_view = {
+          wrap = vim.opt_local.wrap:get(),
+          linebreak = vim.opt_local.linebreak:get(),
+          spell = vim.opt_local.spell:get(),
+          colorcolumn = vim.opt_local.colorcolumn:get(),
+          conceallevel = vim.opt_local.conceallevel:get(),
+        }
+        vim.opt_local.wrap = true
+        vim.opt_local.linebreak = true
+        vim.opt_local.spell = true
+        vim.opt_local.colorcolumn = ''
+        vim.opt_local.conceallevel = 2
+      end,
+      on_close = function()
+        local previous = vim.b._zen_previous_view
+        if previous then
+          vim.opt_local.wrap = previous.wrap
+          vim.opt_local.linebreak = previous.linebreak
+          vim.opt_local.spell = previous.spell
+          vim.opt_local.colorcolumn = previous.colorcolumn
+          vim.opt_local.conceallevel = previous.conceallevel
+          vim.b._zen_previous_view = nil
+        end
+      end,
+    },
+  },
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
   --
   -- This is often very useful to both group configuration, as well as handle
@@ -727,6 +790,7 @@ require('lazy').setup({
       spec = {
         { '<leader>s', group = '[S]earch' },
         { '<leader>t', group = '[T]oggle' },
+        { '<leader>tz', desc = 'Zen Mode' },
         { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } },
       },
     },
