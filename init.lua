@@ -673,6 +673,11 @@ require('lazy').setup({
       }
     end,
   },
+  -- Markdown editing helpers
+  {
+    'preservim/vim-markdown',
+    ft = { 'markdown' },
+  },
   -- Distraction-free writing helpers
   {
     'folke/twilight.nvim',
