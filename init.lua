@@ -333,6 +333,10 @@ vim.keymap.set('n', '<leader>ts', function()
   vim.opt_local.spell = not vim.opt_local.spell:get()
   print(vim.opt_local.spell:get() and 'Spell checking enabled' or 'Spell checking disabled')
 end, { desc = '[T]oggle [S]pell checking' })
+vim.keymap.set('n', '<leader>tw', function()
+  vim.opt_local.list = not vim.opt_local.list:get()
+  print(vim.opt_local.list:get() and 'Whitespace markers enabled' or 'Whitespace markers disabled')
+end, { desc = '[T]oggle [W]hitespace markers' })
 vim.keymap.set('n', ']s', ']s', { desc = 'Next misspelled word' })
 vim.keymap.set('n', '[s', '[s', { desc = 'Previous misspelled word' })
 vim.keymap.set('n', 'z=', 'z=', { desc = 'Suggest spelling corrections' })
@@ -447,6 +451,22 @@ vim.api.nvim_create_autocmd('FileType', {
     vim.opt_local.tabstop = 2
     vim.opt_local.shiftwidth = 2
     vim.opt_local.softtabstop = 2
+  end,
+})
+
+-- Go uses tabs; gofmt assumes a tab width of 8.
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'go' },
+  callback = function()
+    -- Use literal tab characters for indentation; Go code is expected to be tab-indented.
+    vim.opt_local.expandtab = false
+    -- Display tab characters as 8 columns, which matches gofmt's alignment rules.
+    vim.opt_local.tabstop = 8
+    -- Keep editor indentation and insert-mode tab stops aligned to 8 columns.
+    vim.opt_local.shiftwidth = 8
+    vim.opt_local.softtabstop = 8
+    -- Hide whitespace markers for Go by default; toggle with <leader>tw.
+    vim.opt_local.list = false
   end,
 })
 
