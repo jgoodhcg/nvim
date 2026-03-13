@@ -582,21 +582,18 @@ require('lazy').setup({
   },
   -- Symbols list view
   {
-    'simrat39/symbols-outline.nvim',
-    version = '*',
-    lazy = false,
-    cmd = 'SymbolsOutline',
-    keys = { { '<leader>o', '<cmd>SymbolsOutline<CR>', desc = 'Toggle Symbols Outline' } },
-    config = function()
-      require('symbols-outline').setup {
+    'hedyhli/outline.nvim',
+    cmd = 'Outline',
+    keys = { { '<leader>o', '<cmd>Outline<CR>', desc = 'Toggle Symbols Outline' } },
+    opts = {
+      outline_window = {
         position = 'right',
         relative_width = true,
         width = 45,
         auto_close = true,
-        keymaps = { close = { '<Esc>', 'q' } },
-        symbols = {},
-      }
-    end,
+      },
+      keymaps = { close = { '<Esc>', 'q' } },
+    },
   },
   -- Clojure REPL with Conjure
   {
