@@ -99,12 +99,23 @@ do
   vim.g.maplocalleader = ' '
 
   -- Set to true if you have a Nerd Font installed and selected in the terminal
-  vim.g.have_nerd_font = false
+  vim.g.have_nerd_font = true
+
+  -- Disable netrw — nvim-tree owns directory opens.
+  vim.g.loaded_netrw = 1
+  vim.g.loaded_netrwPlugin = 1
 
   -- [[ Setting options ]]
   --  See `:help vim.o`
   -- NOTE: You can change these options as you wish!
   --  For more options, you can see `:help option-list`
+
+  -- Folding: manual folds, all open at start.
+  vim.opt.foldmethod = 'manual'
+  vim.opt.foldenable = true
+  vim.opt.foldlevelstart = 99
+
+  vim.opt.termguicolors = true
 
   -- Make line numbers default
   vim.o.number = true
@@ -248,6 +259,255 @@ do
 end
 
 -- ============================================================
+-- SECTION 1.5: USER CUSTOMIZATIONS
+-- Custom helpers, user commands, filetype autocmds, custom keymaps
+-- (anything that doesn't depend on a plugin — plugin-coupled tweaks
+-- live alongside the plugin's setup further down)
+-- ============================================================
+do
+  -- [[ Helper functions ]]
+
+  -- Find a Clojure `(ns ...)` form on the current line (or by scanning the
+  -- buffer) and copy the namespace to the system clipboard. Handles map
+  -- metadata, simple metadata tokens, and bare ns forms.
+  function FindClojureNamespaceAndCopy()
+    local ns_patterns = {
+      '%(ns%s+%^%b{}%s*([%w%.%-/]+)', -- map metadata: (ns ^{:k v} my.ns)
+      '%(ns%s+%^%S+%s*([%w%.%-/]+)', -- simple metadata: (ns ^:private my.ns)
+      '%(ns%s+([%w%.%-/]+)', -- no metadata: (ns my.ns)
+    }
+
+    local function extract_namespace(s)
+      for _, p in ipairs(ns_patterns) do
+        local m = s:match(p)
+        if m then return m end
+      end
+      return nil
+    end
+
+    local namespace = extract_namespace(vim.api.nvim_get_current_line())
+    if namespace then
+      vim.fn.setreg('+', namespace)
+      print('Copied to clipboard: ' .. namespace)
+      return
+    end
+
+    for _, line in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do
+      namespace = extract_namespace(line)
+      if namespace then
+        vim.fn.setreg('+', namespace)
+        print('Copied to clipboard: ' .. namespace)
+        return
+      end
+    end
+
+    print 'No Clojure namespace declaration found'
+  end
+
+  -- Open (or reuse) a Clojure scratch buffer pre-populated with a
+  -- shadow-cljs / Conjure starter template.
+  function OpenClojureScratchBuffer()
+    local buf
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match '.*ClojureScratch$' then
+        buf = b
+        break
+      end
+    end
+
+    if not buf then
+      buf = vim.api.nvim_create_buf(true, false)
+      vim.api.nvim_buf_set_name(buf, 'ClojureScratch-' .. os.date '%Y%m%d%H%M%S')
+      vim.api.nvim_buf_set_option(buf, 'filetype', 'clojure')
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        '(ns user',
+        '  (:require',
+        '    [shadow.cljs.devtools.api :as shadow]',
+        '    [shadow.cljs.devtools.server :as server]))',
+        '',
+        ';; Clojure Scratch Buffer',
+        ';; Created: ' .. os.date '%Y-%m-%d %H:%M:%S',
+        '',
+        ';; Common REPL commands:',
+        ';;',
+        ';; Start shadow-cljs:',
+        ';;   (server/start!)',
+        ';;   (shadow/watch :app)',
+        ';;   (shadow/repl :app)',
+        ';;',
+        ';; Reload current namespace in REPL:',
+        ";;   (require 'your.ns :reload)",
+        '',
+        '(comment',
+        '  ;; Your code here',
+        '  )',
+        '',
+      })
+    end
+
+    vim.api.nvim_set_current_buf(buf)
+    print 'Opened Clojure scratch buffer'
+  end
+
+  -- Open (or reuse) a Markdown scratch buffer with a project/branch header.
+  function OpenMarkdownScratchBuffer()
+    local buf
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match '.*MarkdownScratch$' then
+        buf = b
+        break
+      end
+    end
+
+    if not buf then
+      buf = vim.api.nvim_create_buf(true, false)
+      vim.api.nvim_buf_set_name(buf, 'MarkdownScratch-' .. os.date '%Y%m%d%H%M%S' .. '.md')
+      vim.api.nvim_buf_set_option(buf, 'filetype', 'markdown')
+
+      local cwd = vim.fn.getcwd()
+      local project_name = vim.fn.fnamemodify(cwd, ':t')
+      local git_branch = vim.fn.system('git branch --show-current 2>/dev/null'):gsub('\n', '')
+      if vim.v.shell_error ~= 0 then git_branch = '' end
+
+      local lines = {
+        '<!-- Markdown Scratch Buffer -->',
+        '<!-- Created: ' .. os.date '%Y-%m-%d %H:%M:%S' .. ' -->',
+        '<!-- Project: ' .. project_name .. ' -->',
+      }
+      if git_branch ~= '' then table.insert(lines, '<!-- Branch: ' .. git_branch .. ' -->') end
+      vim.list_extend(lines, { '', '# Scratch Notes', '', '' })
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    end
+
+    vim.api.nvim_set_current_buf(buf)
+    print 'Opened Markdown scratch buffer'
+  end
+
+  -- Copy current file path relative to the git root (or cwd) to the clipboard.
+  function CopyFilePathFromRoot()
+    local filepath = vim.fn.expand '%:p'
+    local git_root = vim.fn.system('git -C ' .. vim.fn.expand '%:p:h' .. ' rev-parse --show-toplevel'):gsub('\n', '')
+    if vim.v.shell_error ~= 0 then git_root = vim.fn.getcwd() end
+
+    local relative_path = filepath:gsub('^' .. vim.fn.escape(git_root, '%-%.()[]{}\\^$+*') .. '/', '')
+    vim.fn.setreg('+', relative_path)
+    print('Copied to clipboard: ' .. relative_path)
+  end
+
+  -- [[ User commands ]]
+  vim.api.nvim_create_user_command('ClojureScratch', OpenClojureScratchBuffer, { desc = 'Open a new Clojure scratch buffer' })
+  vim.api.nvim_create_user_command('MarkdownScratch', OpenMarkdownScratchBuffer, { desc = 'Open a new Markdown scratch buffer' })
+
+  -- [[ Filetype autocmds ]]
+
+  -- Spell + soft-wrap for prose filetypes.
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = { 'markdown', 'text', 'gitcommit', 'fountain' },
+    callback = function()
+      vim.opt_local.spell = true
+      vim.opt_local.spelllang = 'en_us'
+      vim.opt_local.wrap = true
+    end,
+  })
+
+  -- TypeScript / JavaScript: 2-space soft tabs.
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = { 'typescript', 'javascript', 'typescriptreact', 'javascriptreact' },
+    callback = function()
+      vim.opt_local.expandtab = true
+      vim.opt_local.tabstop = 2
+      vim.opt_local.shiftwidth = 2
+      vim.opt_local.softtabstop = 2
+    end,
+  })
+
+  -- Go: real tabs at width 8 (gofmt convention); hide whitespace markers since
+  -- tabs everywhere makes them noisy. Toggle back with <leader>tw if needed.
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = 'go',
+    callback = function()
+      vim.opt_local.expandtab = false
+      vim.opt_local.tabstop = 8
+      vim.opt_local.shiftwidth = 8
+      vim.opt_local.softtabstop = 8
+      vim.opt_local.list = false
+    end,
+  })
+
+  -- Clojure-buffer-local keymaps.
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = 'clojure',
+    callback = function()
+      vim.keymap.set('n', '<leader>cn', FindClojureNamespaceAndCopy, { buffer = true, desc = '[C]opy Clojure [N]amespace to clipboard' })
+      vim.keymap.set('n', '<leader>n', function() vim.lsp.buf.code_action { context = { only = { 'source.organizeImports' } } } end, { buffer = true, desc = 'Clean [N]amespace' })
+      vim.keymap.set('n', '<leader>cs', OpenClojureScratchBuffer, { buffer = true, desc = '[C]lojure [S]cratch buffer' })
+    end,
+  })
+
+  -- [[ Custom global keymaps ]]
+
+  vim.keymap.set('n', '<leader>cp', CopyFilePathFromRoot, { desc = '[C]opy file [P]ath from project root' })
+  vim.keymap.set('n', '<leader>ms', OpenMarkdownScratchBuffer, { desc = '[M]arkdown [S]cratch buffer' })
+
+  -- Spell/grammar/zen toggles.
+  vim.keymap.set('n', '<leader>ts', function()
+    vim.opt_local.spell = not vim.opt_local.spell:get()
+    print(vim.opt_local.spell:get() and 'Spell checking enabled' or 'Spell checking disabled')
+  end, { desc = '[T]oggle [S]pell checking' })
+
+  vim.keymap.set('n', '<leader>tw', function()
+    vim.opt_local.list = not vim.opt_local.list:get()
+    print(vim.opt_local.list:get() and 'Whitespace markers enabled' or 'Whitespace markers disabled')
+  end, { desc = '[T]oggle [W]hitespace markers' })
+
+  vim.keymap.set('n', '<leader>tg', function()
+    local clients = vim.lsp.get_clients { name = 'ltex' }
+    if #clients == 0 then
+      vim.cmd 'LspStart ltex'
+      print 'Grammar checking enabled'
+    else
+      for _, client in ipairs(clients) do
+        client.stop()
+      end
+      print 'Grammar checking disabled'
+    end
+  end, { desc = '[T]oggle [G]rammar checking' })
+
+  vim.keymap.set('n', '<leader>tz', function()
+    local ok, zen = pcall(require, 'zen-mode')
+    if not ok then
+      vim.notify('Zen Mode is not available', vim.log.levels.ERROR)
+      return
+    end
+    zen.toggle()
+  end, { desc = '[T]oggle [Z]en (with Twilight)' })
+
+  -- Spell navigation rebinds — same behavior, but `desc` makes them
+  -- discoverable in which-key.
+  vim.keymap.set('n', ']s', ']s', { desc = 'Next misspelled word' })
+  vim.keymap.set('n', '[s', '[s', { desc = 'Previous misspelled word' })
+  vim.keymap.set('n', 'z=', 'z=', { desc = 'Suggest spelling corrections' })
+  vim.keymap.set('n', 'zg', 'zg', { desc = 'Add word to dictionary' })
+  vim.keymap.set('n', 'zw', 'zw', { desc = 'Mark word as misspelled' })
+
+  -- Window management.
+  vim.keymap.set('n', '<leader>wh', function() vim.cmd 'wincmd h' end, { desc = 'Move to left window' })
+  vim.keymap.set('n', '<leader>wj', function() vim.cmd 'wincmd j' end, { desc = 'Move to lower window' })
+  vim.keymap.set('n', '<leader>wk', function() vim.cmd 'wincmd k' end, { desc = 'Move to upper window' })
+  vim.keymap.set('n', '<leader>wl', function() vim.cmd 'wincmd l' end, { desc = 'Move to right window' })
+  vim.keymap.set('n', '<leader>ws', function() vim.cmd 'wincmd s' end, { desc = 'Split horizontally' })
+  vim.keymap.set('n', '<leader>wv', function() vim.cmd 'wincmd v' end, { desc = 'Split vertically' })
+  vim.keymap.set('n', '<leader>wq', function() vim.cmd 'wincmd q' end, { desc = 'Close window' })
+  vim.keymap.set('n', '<leader>wo', function() vim.cmd 'wincmd o' end, { desc = 'Close all other windows' })
+  vim.keymap.set('n', '<leader>w=', function() vim.cmd 'wincmd =' end, { desc = 'Equalize window sizes' })
+  vim.keymap.set('n', '<leader>w|', function() vim.cmd 'wincmd |' end, { desc = 'Maximize window width' })
+  vim.keymap.set('n', '<leader>w_', function() vim.cmd 'wincmd _' end, { desc = 'Maximize window height' })
+  vim.keymap.set('n', '<leader>wd', vim.diagnostic.open_float, { desc = 'Show diagnostic under cursor' })
+  vim.keymap.set('n', '<leader>wD', vim.diagnostic.setloclist, { desc = 'Open diagnostic list' })
+end
+
+-- ============================================================
 -- SECTION 2: PLUGIN MANAGER INTRO
 -- vim.pack intro, build hooks
 -- ============================================================
@@ -372,7 +632,9 @@ do
     spec = {
       { '<leader>s', group = '[S]earch', mode = { 'n', 'v' } },
       { '<leader>t', group = '[T]oggle' },
+      { '<leader>tz', desc = 'Zen Mode' },
       { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } }, -- Enable gitsigns recommended keymaps first
+      { '<leader>w', group = '[W]indow' },
       { 'gr', group = 'LSP Actions', mode = { 'n' } },
     },
   }
@@ -485,19 +747,54 @@ do
 
   -- See `:help telescope` and `:help telescope.setup()`
   require('telescope').setup {
-    -- You can put your default mappings / updates / etc. in here
-    --  All the info you're looking for is in `:help telescope.setup()`
-    --
-    -- defaults = {
-    --   mappings = {
-    --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-    --   },
-    -- },
-    -- pickers = {}
+    defaults = {
+      hidden = false,
+      file_ignore_patterns = {},
+      mappings = {
+        i = { ['<c-enter>'] = 'to_fuzzy_refine' },
+      },
+    },
+    pickers = {
+      find_files = { hidden = false, no_ignore = false },
+      live_grep = {},
+    },
     extensions = {
       ['ui-select'] = { require('telescope.themes').get_dropdown() },
     },
   }
+
+  -- Re-call telescope.setup() to flip `hidden`/`no_ignore` together across the
+  -- defaults and pickers. State lives on _G so toggling is idempotent across
+  -- reloads.
+  _G.telescope_toggle_hidden_files = function()
+    if _G.telescope_showing_hidden == nil then _G.telescope_showing_hidden = false end
+    _G.telescope_showing_hidden = not _G.telescope_showing_hidden
+    local on = _G.telescope_showing_hidden
+
+    local config = {
+      defaults = {
+        mappings = { i = { ['<c-enter>'] = 'to_fuzzy_refine' } },
+        hidden = on,
+        no_ignore = on,
+      },
+      pickers = {
+        find_files = { hidden = on, no_ignore = on },
+        live_grep = {},
+      },
+      extensions = {
+        ['ui-select'] = { require('telescope.themes').get_dropdown() },
+      },
+    }
+    if on then
+      config.pickers.live_grep.additional_args = function() return { '--hidden', '--no-ignore' } end
+    end
+
+    require('telescope').setup(config)
+    pcall(require('telescope').load_extension, 'fzf')
+    pcall(require('telescope').load_extension, 'ui-select')
+
+    print(on and 'Telescope: Now showing hidden and git-ignored files' or 'Telescope: Now hiding hidden and git-ignored files')
+  end
 
   -- Enable Telescope extensions if they are installed
   pcall(require('telescope').load_extension, 'fzf')
@@ -576,6 +873,22 @@ do
 
   -- Shortcut for searching your Neovim configuration files
   vim.keymap.set('n', '<leader>sn', function() builtin.find_files { cwd = vim.fn.stdpath 'config' } end, { desc = '[S]earch [N]eovim files' })
+
+  -- Live-grep the unnamed yank register (whitespace collapsed) — convenient for
+  -- "find every other place this thing I just yanked appears".
+  vim.keymap.set('n', '<leader>sp', function()
+    local yanked = vim.fn.getreg '"'
+    if yanked and yanked ~= '' then
+      local cleaned = yanked:gsub('\n', ' '):gsub('%s+', ' '):match '^%s*(.-)%s*$'
+      builtin.live_grep { default_text = cleaned }
+    else
+      print 'No text in yank register'
+    end
+  end, { desc = '[S]earch for yanked text ([P]aste)' })
+
+  -- Toggle hidden + git-ignored files across telescope (renamed from <leader>ts
+  -- to avoid colliding with the spell toggle).
+  vim.keymap.set('n', '<leader>sH', function() _G.telescope_toggle_hidden_files() end, { desc = '[S]earch toggle [H]idden files' })
 end
 
 -- ============================================================
@@ -686,18 +999,32 @@ do
   --  See `:help lsp-config` for information about keys and how to configure
   ---@type table<string, vim.lsp.Config>
   local servers = {
-    -- clangd = {},
-    -- gopls = {},
-    -- pyright = {},
-    -- rust_analyzer = {},
-    --
-    -- Some languages (like typescript) have entire language plugins that can be useful:
-    --    https://github.com/pmizio/typescript-tools.nvim
-    --
-    -- But for many setups, the LSP (`ts_ls`) will work just fine
-    -- ts_ls = {},
-
     stylua = {}, -- Used to format Lua code
+
+    gopls = {},
+    ts_ls = {},
+    rust_analyzer = {},
+    clojure_lsp = {},
+
+    -- Grammar / spell checking for prose. Off by default — toggle on with
+    -- <leader>tg, which starts the client on demand.
+    ltex = {
+      autostart = false,
+      settings = {
+        ltex = {
+          language = 'en-US',
+          disabledRules = {},
+          hiddenFalsePositives = {},
+          dictionary = { ['en-US'] = {} },
+        },
+      },
+    },
+
+    jsonls = {
+      settings = {
+        json = { validate = { enable = true } },
+      },
+    },
 
     -- Special Lua Config, as recommended by neovim help docs
     lua_ls = {
@@ -728,6 +1055,7 @@ do
       ---@type lspconfig.settings.lua_ls
       settings = {
         Lua = {
+          completion = { callSnippet = 'Replace' },
           format = { enable = false }, -- Disable formatting (formatting is done by stylua)
         },
       },
@@ -753,7 +1081,9 @@ do
   -- You can press `g?` for help in this menu.
   local ensure_installed = vim.tbl_keys(servers or {})
   vim.list_extend(ensure_installed, {
-    -- You can add other tools here that you want Mason to install
+    'clj-kondo',
+    'cljfmt',
+    'prettier',
   })
 
   require('mason-tool-installer').setup { ensure_installed = ensure_installed }
@@ -773,33 +1103,44 @@ do
   vim.pack.add { gh 'stevearc/conform.nvim' }
   require('conform').setup {
     notify_on_error = false,
+    -- Disable-list rather than allow-list: format on save unless the filetype
+    -- is on this list. C/C++ have no standardized style, Clojure is formatted
+    -- manually via <leader>f / <leader>j, TS/JS are formatted by their LSP on
+    -- save in some projects and we let that be authoritative.
     format_on_save = function(bufnr)
-      -- You can specify filetypes to autoformat on save here:
-      local enabled_filetypes = {
-        -- lua = true,
-        -- python = true,
-      }
-      if enabled_filetypes[vim.bo[bufnr].filetype] then
-        return { timeout_ms = 500 }
-      else
-        return nil
-      end
+      local disable_filetypes = { c = true, cpp = true, clojure = true, typescript = true, javascript = true }
+      if disable_filetypes[vim.bo[bufnr].filetype] then return nil end
+      return { timeout_ms = 500, lsp_format = 'fallback' }
     end,
     default_format_opts = {
-      lsp_format = 'fallback', -- Use external formatters if configured below, otherwise use LSP formatting. Set to `false` to disable LSP formatting entirely.
+      lsp_format = 'fallback',
     },
-    -- You can also specify external formatters in here.
     formatters_by_ft = {
-      -- rust = { 'rustfmt' },
-      -- Conform can also run multiple formatters sequentially
-      -- python = { "isort", "black" },
-      --
-      -- You can use 'stop_after_first' to run the first available formatter from the list
-      -- javascript = { "prettierd", "prettier", stop_after_first = true },
+      lua = { 'stylua' },
+      clojure = { 'cljfmt' },
+      json = { 'prettier' },
+      jsonc = { 'prettier' },
+      typescript = { 'prettier' },
+      javascript = { 'prettier' },
+      html = { 'prettier' },
+    },
+    -- Custom zprint variant used by <leader>j to format Clojure maps/bindings
+    -- with justified key alignment + namespace sorting.
+    formatters = {
+      zprint_justified = {
+        command = 'zprint',
+        args = { '{:style [:respect-nl :justified :ns-justify :sort-dependencies :sort-require]}' },
+        stdin = true,
+      },
     },
   }
 
-  vim.keymap.set({ 'n', 'v' }, '<leader>f', function() require('conform').format { async = true } end, { desc = '[F]ormat buffer' })
+  vim.keymap.set({ 'n', 'v' }, '<leader>f', function() require('conform').format { async = true } end, { desc = '[F]ormat buffer or selection' })
+
+  -- Clojure-only: run zprint with justified pairs.
+  vim.keymap.set({ 'n', 'v' }, '<leader>j', function()
+    if vim.bo.filetype == 'clojure' then require('conform').format { async = true, formatters = { 'zprint_justified' } } end
+  end, { desc = '[J]ustify Clojure maps/bindings' })
 end
 
 -- ============================================================
@@ -865,7 +1206,17 @@ do
     },
 
     sources = {
-      default = { 'lsp', 'path', 'snippets' },
+      default = { 'lsp', 'path', 'snippets', 'lazydev' },
+      per_filetype = {
+        sql = { 'lsp', 'path', 'snippets', 'lazydev', 'dadbod' },
+        mysql = { 'lsp', 'path', 'snippets', 'lazydev', 'dadbod' },
+        plsql = { 'lsp', 'path', 'snippets', 'lazydev', 'dadbod' },
+        dbout = { 'dadbod' },
+      },
+      providers = {
+        lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
+        dadbod = { name = 'Dadbod', module = 'vim_dadbod_completion.blink' },
+      },
     },
 
     snippets = { preset = 'luasnip' },
@@ -947,6 +1298,183 @@ do
 end
 
 -- ============================================================
+-- SECTION 8.5: USER PLUGINS
+-- All extras on top of kickstart. Everything eager-loaded — see
+-- :help vim.pack and `vim.loader.enable()` for why startup cost is fine.
+-- Where globals need to be set before a plugin sources its vim files,
+-- the assignment sits directly above the corresponding vim.pack.add.
+-- ============================================================
+do
+  -- lazydev — load nvim's runtime types into lua_ls and provide a blink.cmp
+  -- source for nvim Lua development. blink.cmp's providers reference lazydev
+  -- by module string; the actual require happens on first use, so setup
+  -- order here vs Section 7 doesn't matter.
+  vim.pack.add { gh 'folke/lazydev.nvim' }
+  require('lazydev').setup {
+    library = {
+      { path = '${3rd}/luv/library', words = { 'vim%.uv' } },
+    },
+  }
+
+  -- ----- File tree -----
+  vim.pack.add {
+    gh 'nvim-tree/nvim-tree.lua',
+    gh 'nvim-tree/nvim-web-devicons',
+  }
+  require('nvim-tree').setup {
+    sort = { sorter = 'case_sensitive' },
+    view = { width = 35 },
+    renderer = { group_empty = true },
+    filters = {
+      dotfiles = true,
+      git_ignored = true,
+    },
+    actions = {
+      open_file = { quit_on_open = true },
+    },
+  }
+
+  vim.keymap.set('n', '<leader>e', ':NvimTreeToggle<CR>', { desc = 'Toggle File Tree' })
+  vim.keymap.set('n', '<leader>ef', ':NvimTreeFindFile<CR>', { desc = 'Find Current File in Tree' })
+  vim.keymap.set('n', '<leader>eh', function()
+    require('nvim-tree.api').tree.toggle_hidden_filter()
+    print 'Toggled hidden files'
+  end, { desc = 'Toggle Hidden Files in Tree' })
+  vim.keymap.set('n', '<leader>ei', function()
+    require('nvim-tree.api').tree.toggle_gitignore_filter()
+    print 'Toggled git-ignored files'
+  end, { desc = 'Toggle Git-Ignored Files in Tree' })
+
+  -- ----- Symbol outline -----
+  vim.pack.add { gh 'hedyhli/outline.nvim' }
+  require('outline').setup {
+    outline_window = { position = 'right', relative_width = true, width = 45, auto_close = true },
+    keymaps = { close = { '<Esc>', 'q' } },
+  }
+  vim.keymap.set('n', '<leader>o', '<cmd>Outline<CR>', { desc = 'Toggle Symbols Outline' })
+
+  -- ----- Conjure (Clojure REPL) -----
+  -- Conjure reads these globals as it sources, so they must be set first.
+  vim.g['conjure#mapping#prefix'] = ',c'
+  vim.g['conjure#log#winheight'] = 12
+  vim.pack.add { gh 'Olical/conjure' }
+
+  -- ----- vim-sexp + paredit helpers -----
+  -- Intentional: disable nearly every default mapping. The bindings we use
+  -- daily are slurp/barf via vim-sexp-mappings-for-regular-people and a
+  -- subset of vim-sexp's defaults that don't appear in the disable list.
+  -- (Audit before changing — this list was tuned by hand.)
+  vim.g.sexp_mappings = {
+    sexp_round_head_wrap_element = '',
+    sexp_round_tail_wrap_element = '',
+    sexp_square_head_wrap_element = '',
+    sexp_square_tail_wrap_element = '',
+    sexp_curly_head_wrap_element = '',
+    sexp_curly_tail_wrap_element = '',
+    sexp_round_head_wrap_list = '',
+    sexp_round_tail_wrap_list = '',
+    sexp_square_head_wrap_list = '',
+    sexp_square_tail_wrap_list = '',
+    sexp_curly_head_wrap_list = '',
+    sexp_curly_tail_wrap_list = '',
+    sexp_splice_list = '',
+    sexp_raise_list = '',
+    sexp_raise_element = '',
+    sexp_swap_list_backward = '',
+    sexp_swap_list_forward = '',
+    sexp_swap_element_backward = '',
+    sexp_swap_element_forward = '',
+    sexp_emit_head_element = '',
+    sexp_emit_tail_element = '',
+    sexp_capture_head_element = '',
+    sexp_capture_tail_element = '',
+  }
+  vim.g.sexp_mappings_for_regular_people = {
+    sexp_capture_next_element = '', -- <(
+    sexp_capture_prev_element = '', -- >)
+  }
+  vim.pack.add {
+    gh 'tpope/vim-repeat',
+    gh 'tpope/vim-surround',
+    gh 'guns/vim-sexp',
+    gh 'tpope/vim-sexp-mappings-for-regular-people',
+  }
+
+  -- ----- Database (dadbod) -----
+  vim.g.db_ui_use_nerd_fonts = 1
+  vim.pack.add {
+    gh 'tpope/vim-dadbod',
+    gh 'kristijanhusak/vim-dadbod-ui',
+    gh 'kristijanhusak/vim-dadbod-completion',
+  }
+
+  -- ----- Fountain (screenwriting) -----
+  vim.pack.add { gh '00msjr/nvim-fountain' }
+  require('nvim-fountain').setup {
+    keymaps = { next_scene = ']]', prev_scene = '[[', uppercase_line = '<S-CR>' },
+    export = { pdf = { options = '--overwrite --font Courier' } },
+  }
+
+  -- ----- Markdown helpers -----
+  vim.pack.add { gh 'preservim/vim-markdown' }
+
+  -- ----- Distraction-free writing -----
+  vim.pack.add { gh 'folke/twilight.nvim' }
+  require('twilight').setup {
+    dimming = { alpha = 0.25 },
+    context = 8,
+    expand = { 'markdown' },
+    exclude = { 'lazy', 'mason' },
+  }
+
+  vim.pack.add { gh 'folke/zen-mode.nvim' }
+  require('zen-mode').setup {
+    window = {
+      width = 90,
+      options = { number = false, relativenumber = false, signcolumn = 'no' },
+    },
+    plugins = {
+      twilight = { enabled = true },
+      gitsigns = { enabled = false },
+      tmux = { enabled = true },
+    },
+    on_open = function()
+      vim.b._zen_previous_view = {
+        wrap = vim.opt_local.wrap:get(),
+        linebreak = vim.opt_local.linebreak:get(),
+        spell = vim.opt_local.spell:get(),
+        colorcolumn = vim.opt_local.colorcolumn:get(),
+        conceallevel = vim.opt_local.conceallevel:get(),
+      }
+      vim.opt_local.wrap = true
+      vim.opt_local.linebreak = true
+      vim.opt_local.spell = true
+      vim.opt_local.colorcolumn = ''
+      vim.opt_local.conceallevel = 2
+    end,
+    on_close = function()
+      local p = vim.b._zen_previous_view
+      if p then
+        vim.opt_local.wrap = p.wrap
+        vim.opt_local.linebreak = p.linebreak
+        vim.opt_local.spell = p.spell
+        vim.opt_local.colorcolumn = p.colorcolumn
+        vim.opt_local.conceallevel = p.conceallevel
+        vim.b._zen_previous_view = nil
+      end
+    end,
+  }
+
+  -- ----- Commenting -----
+  vim.pack.add { gh 'numToStr/Comment.nvim' }
+  require('Comment').setup {}
+
+  -- ----- Rainbow delimiters -----
+  vim.pack.add { gh 'HiPhish/rainbow-delimiters.nvim' }
+  require('rainbow-delimiters.setup').setup()
+end
+
+-- ============================================================
 -- SECTION 9: OPTIONAL EXAMPLES / NEXT STEPS
 -- kickstart.plugins.* examples
 -- ============================================================
@@ -963,7 +1491,7 @@ do
   -- require 'kickstart.plugins.debug'
   -- require 'kickstart.plugins.indent_line'
   -- require 'kickstart.plugins.lint'
-  -- require 'kickstart.plugins.autopairs'
+  require 'kickstart.plugins.autopairs'
   -- require 'kickstart.plugins.neo-tree'
   -- require 'kickstart.plugins.gitsigns' -- adds gitsigns recommended keymaps
 
