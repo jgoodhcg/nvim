@@ -343,27 +343,13 @@ vim.keymap.set('n', 'z=', 'z=', { desc = 'Suggest spelling corrections' })
 vim.keymap.set('n', 'zg', 'zg', { desc = 'Add word to dictionary' })
 vim.keymap.set('n', 'zw', 'zw', { desc = 'Mark word as misspelled' })
 
--- Toggle grammar/spell checking (ltex LSP)
+-- Toggle grammar/spell checking (ltex LSP) — off by default; see ltex config in `servers`
 vim.keymap.set('n', '<leader>tg', function()
   local clients = vim.lsp.get_clients({ name = 'ltex' })
   if #clients == 0 then
-    -- Start ltex LSP
-    require('lspconfig').ltex.setup({
-      settings = {
-        ltex = {
-          language = 'en-US',
-          disabledRules = {},
-          hiddenFalsePositives = {},
-          dictionary = {
-            ['en-US'] = {},
-          },
-        },
-      },
-    })
-    vim.cmd('LspRestart')
+    vim.cmd('LspStart ltex')
     print('Grammar checking enabled')
   else
-    -- Stop ltex LSP
     for _, client in ipairs(clients) do
       client.stop()
     end
@@ -1247,8 +1233,9 @@ require('lazy').setup({
         rust_analyzer = {},
         clojure_lsp = {},
 
-        -- Grammar and spell checking for prose
+        -- Grammar and spell checking for prose (off by default; toggle with <leader>tg)
         ltex = {
+          autostart = false,
           settings = {
             ltex = {
               language = 'en-US',
