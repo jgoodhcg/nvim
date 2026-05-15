@@ -461,14 +461,20 @@ do
     print(vim.opt_local.list:get() and 'Whitespace markers enabled' or 'Whitespace markers disabled')
   end, { desc = '[T]oggle [W]hitespace markers' })
 
+  -- ltex auto-starts on prose buffers (see Section 5). This toggle is for
+  -- when you want it temporarily quiet. Disabled state:
+  -- `vim.lsp.enable(name, false)` clears the auto-attach flag, then
+  -- `client:stop()` kills the running instance. Re-enable just reverses both
+  -- by calling `vim.lsp.enable(name)` (which re-attaches to existing buffers).
   vim.keymap.set('n', '<leader>tg', function()
     local clients = vim.lsp.get_clients { name = 'ltex' }
     if #clients == 0 then
-      vim.cmd 'LspStart ltex'
+      vim.lsp.enable 'ltex'
       print 'Grammar checking enabled'
     else
+      vim.lsp.enable('ltex', false)
       for _, client in ipairs(clients) do
-        client.stop()
+        client:stop()
       end
       print 'Grammar checking disabled'
     end
@@ -488,8 +494,31 @@ do
   vim.keymap.set('n', ']s', ']s', { desc = 'Next misspelled word' })
   vim.keymap.set('n', '[s', '[s', { desc = 'Previous misspelled word' })
   vim.keymap.set('n', 'z=', 'z=', { desc = 'Suggest spelling corrections' })
-  vim.keymap.set('n', 'zg', 'zg', { desc = 'Add word to dictionary' })
   vim.keymap.set('n', 'zw', 'zw', { desc = 'Mark word as misspelled' })
+
+  -- `zg` does two things: vim's native dictionary add, then dispatch to
+  -- ltex_extra's client-side handler so ltex's hint disappears immediately
+  -- AND is persisted. ltex_extra registers `_ltex.addToDictionary` in
+  -- vim.lsp.commands — that's the path the gra-menu's "Add to dictionary"
+  -- uses. Sending the command via workspace/executeCommand to the server
+  -- skips ltex_extra entirely (the server doesn't implement it).
+  vim.keymap.set('n', 'zg', function()
+    local word = vim.fn.expand '<cword>'
+    if word == '' then return end
+
+    vim.cmd 'normal! zg' -- vim spell: append to .add + recompile .spl
+
+    local handler = vim.lsp.commands['_ltex.addToDictionary']
+    if not handler then return end
+    for _, client in ipairs(vim.lsp.get_clients { name = 'ltex' }) do
+      handler({
+        command = '_ltex.addToDictionary',
+        arguments = {
+          { uri = vim.uri_from_bufnr(0), words = { ['en-US'] = { word } } },
+        },
+      }, { bufnr = 0, client_id = client.id })
+    end
+  end, { desc = 'Add word to dictionary (vim spell + ltex)' })
 
   -- Window management.
   vim.keymap.set('n', '<leader>wh', function() vim.cmd 'wincmd h' end, { desc = 'Move to left window' })
@@ -1006,10 +1035,12 @@ do
     rust_analyzer = {},
     clojure_lsp = {},
 
-    -- Grammar / spell checking for prose. Off by default — toggle on with
-    -- <leader>tg, which starts the client on demand.
+    -- Grammar / spell checking for prose. Auto-attaches to markdown/text/etc.
+    -- Toggle off temporarily with <leader>tg when its hints get noisy.
+    -- Dictionary persistence is handled by ltex_extra (see Section 8.5) — the
+    -- `dictionary` table here is the in-memory starting set; ltex_extra
+    -- populates it from disk on attach via `init_check`.
     ltex = {
-      autostart = false,
       settings = {
         ltex = {
           language = 'en-US',
@@ -1090,7 +1121,11 @@ do
 
   for name, server in pairs(servers) do
     vim.lsp.config(name, server)
-    vim.lsp.enable(name)
+    -- The legacy `autostart = false` field is not honored by vim.lsp.enable(),
+    -- so we gate it ourselves. No server currently uses it; pattern is here
+    -- in case you want to add an opt-out server later (set autostart=false on
+    -- the config, then enable it on demand via `vim.lsp.enable(name)`).
+    if server.autostart ~= false then vim.lsp.enable(name) end
   end
 end
 
@@ -1401,6 +1436,8 @@ do
   }
 
   -- ----- Database (dadbod) -----
+  -- Global must be set before vim-dadbod-ui sources (same pattern as conjure
+  -- and vim-sexp above). Trigger commands: :DBUI, :DBUIToggle.
   vim.g.db_ui_use_nerd_fonts = 1
   vim.pack.add {
     gh 'tpope/vim-dadbod',
@@ -1417,6 +1454,58 @@ do
 
   -- ----- Markdown helpers -----
   vim.pack.add { gh 'preservim/vim-markdown' }
+
+  -- ----- ltex_extra: persist ltex dictionary / disabled rules / false positives -----
+  -- ltex_extra registers handlers for the `_ltex.*` workspace commands the
+  -- code-action menu invokes, so adds survive restart. We point it at
+  -- ~/.config/nvim/spell (the same dir vim uses for `zg`/`zw` words).
+  --
+  -- Single-source-of-truth bootstrap: ltex_extra hard-codes its dictionary
+  -- filename as `dictionary.<lang>.txt`, while vim's spell uses `en.utf-8.add`.
+  -- We symlink the ltex name to the vim name so both tools read/write the
+  -- same physical file. Idempotent — only acts on a fresh machine where the
+  -- symlink doesn't already exist.
+  --
+  -- Caveat: when ltex adds a word via "gra → Add to dictionary", it lands in
+  -- the shared file immediately and ltex stops flagging it. But vim's spell
+  -- checker reads from a compiled `.spl` binary, not the `.add` text file —
+  -- and that `.spl` only regenerates when vim writes the spellfile (which
+  -- `zg` triggers automatically). So a word added via ltex will still show
+  -- vim's spell squiggle until you next restart nvim (or `zg` any other
+  -- word, which forces a recompile that pulls in ltex-added entries too).
+  do
+    local spell_dir = vim.fn.stdpath 'config' .. '/spell'
+    vim.fn.mkdir(spell_dir, 'p')
+    local vim_dict = spell_dir .. '/en.utf-8.add'
+    local ltex_dict = spell_dir .. '/dictionary.en-US.txt'
+    if vim.fn.filereadable(vim_dict) == 0 then vim.fn.writefile({}, vim_dict) end
+    if vim.uv.fs_lstat(ltex_dict) == nil then vim.uv.fs_symlink(vim_dict, ltex_dict) end
+  end
+
+  vim.pack.add { gh 'barreiroleo/ltex_extra.nvim' }
+  -- ltex_extra.setup() with `init_check = true` reads the on-disk dictionary
+  -- and pushes it into the running ltex client. That only works once ltex is
+  -- attached, so we defer setup to the first LspAttach for ltex (rather than
+  -- calling it eagerly during init, when no client exists yet). The one-shot
+  -- guard prevents re-registering handlers if ltex re-attaches later.
+  do
+    local ltex_extra_initialized = false
+    vim.api.nvim_create_autocmd('LspAttach', {
+      callback = function(args)
+        if ltex_extra_initialized then return end
+        local client = vim.lsp.get_client_by_id(args.data.client_id)
+        if client and client.name == 'ltex' then
+          ltex_extra_initialized = true
+          require('ltex_extra').setup {
+            load_langs = { 'en-US' },
+            init_check = true,
+            path = vim.fn.stdpath 'config' .. '/spell',
+            log_level = 'none',
+          }
+        end
+      end,
+    })
+  end
 
   -- ----- Distraction-free writing -----
   vim.pack.add { gh 'folke/twilight.nvim' }
