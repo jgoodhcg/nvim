@@ -1428,12 +1428,16 @@ do
     sexp_capture_next_element = '', -- <(
     sexp_capture_prev_element = '', -- >)
   }
-  vim.pack.add {
+  -- load = true sources plugin/ files now, in this order. Default startup
+  -- loading sorts by path, which puts vim-sexp-mappings-for-regular-people
+  -- before vim-sexp; it then defers its FileType autocmd to VimEnter and the
+  -- file opened on the command line never gets the slurp/barf mappings.
+  vim.pack.add({
     gh 'tpope/vim-repeat',
     gh 'tpope/vim-surround',
     gh 'guns/vim-sexp',
     gh 'tpope/vim-sexp-mappings-for-regular-people',
-  }
+  }, { load = true })
 
   -- ----- Database (dadbod) -----
   -- Global must be set before vim-dadbod-ui sources (same pattern as conjure
