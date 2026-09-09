@@ -1163,7 +1163,7 @@ do
     -- with justified key alignment + namespace sorting.
     formatters = {
       zprint_justified = {
-        command = 'zprint',
+        command = vim.fn.expand '~/.local/bin/zprint',
         args = { '{:style [:respect-nl :justified :ns-justify :sort-dependencies :sort-require]}' },
         stdin = true,
       },
